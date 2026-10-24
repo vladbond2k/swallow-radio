@@ -216,6 +216,7 @@ class Store:
                 self.write(f.stem, theirs)
             elif "prices" in theirs:
                 mine["asked"] = max(mine.get("asked", 0), theirs.get("asked", 0))
+                mine["tries"] = max(mine.get("tries", 0), theirs.get("tries", 0))
                 for d, v in theirs["prices"].items():
                     if d not in mine["prices"] or v[1] > mine["prices"][d][1]:
                         mine["prices"][d] = v
