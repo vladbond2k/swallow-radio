@@ -13,6 +13,8 @@ class Config:
     min_days: int
     max_days: int
     max_stops: int = 2
+    max_layover_hours: float = 0             # 0 = no limit
+    max_travel_hours: float = 0              # one direction, door to door at airports; 0 = no limit
     currency: str = "PLN"
     market: str = "PL"                       # Google prices for this country, whatever the VPN exit is
     delay: float = 3.0                       # pause between requests, seconds
@@ -31,6 +33,8 @@ def load(path: str | Path) -> Config:
         min_days=trip["min_days"],
         max_days=trip["max_days"],
         max_stops=trip.get("max_stops", 2),
+        max_layover_hours=trip.get("max_layover_hours", 0),
+        max_travel_hours=trip.get("max_travel_hours", 0),
         currency=raw.get("currency", "PLN").upper(),
         market=raw.get("market", "PL").upper(),
     )

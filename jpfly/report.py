@@ -27,7 +27,7 @@ def write_html(opts: list[Option], cfg: Config, path: Path, warnings: list[str],
     data = [[o.home, o.dest, o.out.isoformat(), o.days, round(o.price)] for o in opts]
     meta = {
         "cur": cfg.currency, "homes": cfg.home, "japan": cfg.japan,
-        "min": cfg.min_days, "max": cfg.max_days,
+        "min": cfg.min_days, "max": cfg.max_days, "layover": cfg.max_layover_hours, "travel": cfg.max_travel_hours,
         "from": cfg.depart_from.isoformat(), "to": cfg.depart_to.isoformat(),
         "updated": datetime.now().strftime("%d.%m.%Y %H:%M"), "warnings": warnings, "demo": demo,
     }
@@ -90,7 +90,7 @@ const gUrl=o=>"https://www.google.com/travel/flights?q="+encodeURIComponent(
   `Flights from ${o.home} to ${o.dest} on ${o.out} through ${addDays(o.out,o.days)}`)+"&curr="+M.cur+"&hl=ru";
 const dayWord=n=>n%10==1&&n%100!=11?"день":[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?"дня":"дней";
 
-$("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · ${M.homes.length} аэропортов вылета ⇄ ${M.japan.map(c=>NAMES[c]||c).join(", ")} · обновлено ${M.updated}`;
+$("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · ${M.homes.length} аэропортов вылета ⇄ ${M.japan.map(c=>NAMES[c]||c).join(", ")} ${M.layover?` · пересадки до ${M.layover} ч`:""}${M.travel?` · в пути до ${M.travel} ч`:""} · обновлено ${M.updated}`;
 $("warn").innerHTML=(M.demo?["ДЕМО: цены выдуманные, только чтобы показать вид"]:[]).concat(M.warnings)
   .map(w=>`<p class=warn>⚠ ${w.replace(/</g,"&lt;")}</p>`).join("")+(D.length?"":"<p class=warn>Ничего не найдено.</p>");
 $("len").add(new Option("любая",""));for(let n=M.min;n<=M.max;n++)$("len").add(new Option(`${n} ${dayWord(n)}`,n));

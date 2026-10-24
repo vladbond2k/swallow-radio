@@ -54,7 +54,7 @@ def _windows(cfg: Config) -> list[tuple[date, date]]:
 
 def _calendar(cfg: Config, home: str, dest: str, days: int, start: date, end: date) -> dict[str, float]:
     from fli.core.builders import build_date_search_segments
-    from fli.models import Airport, DateSearchFilters, MaxStops, PassengerInfo, SeatType
+    from fli.models import Airport, DateSearchFilters, LayoverRestrictions, MaxStops, PassengerInfo, SeatType
     from fli.search import SearchDates
 
     stops = {0: MaxStops.NON_STOP, 1: MaxStops.ONE_STOP_OR_FEWER, 2: MaxStops.TWO_OR_FEWER_STOPS}
@@ -66,6 +66,9 @@ def _calendar(cfg: Config, home: str, dest: str, days: int, start: date, end: da
         trip_type=trip_type, passenger_info=PassengerInfo(adults=1), flight_segments=segments,
         stops=stops.get(cfg.max_stops, MaxStops.ANY), seat_type=SeatType.ECONOMY,
         from_date=start.isoformat(), to_date=end.isoformat(), duration=days,
+        layover_restrictions=(LayoverRestrictions(max_duration=int(cfg.max_layover_hours * 60))
+                              if cfg.max_layover_hours else None),
+        max_duration=int(cfg.max_travel_hours * 60) or None,
     )
     res = SearchDates().search(filters, currency=cfg.currency, language="en", country=cfg.market)
     if res is None:          # fli returns None when Google sends back an empty error payload
@@ -90,7 +93,9 @@ class Store:
 
     def _path(self, key) -> Path:
         home, dest, days, start, end = key
-        return self.root / f"{self.cfg.currency}-{self.cfg.max_stops}-{home}-{dest}-{days}-{start}-{end}.json"
+        c = self.cfg
+        filters = f"{c.currency}-{c.market}-s{c.max_stops}-l{c.max_layover_hours:g}-t{c.max_travel_hours:g}"
+        return self.root / f"{filters}-{home}-{dest}-{days}-{start}-{end}.json"
 
     def load(self, key) -> dict:
         p = self._path(key)
