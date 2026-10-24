@@ -14,6 +14,9 @@ class Config:
     max_days: int
     max_stops: int = 2
     currency: str = "PLN"
+    delay: float = 3.0                       # pause between requests, seconds
+    backoff: tuple = (60, 180, 420)          # waits after Google refuses, then give up for this run
+    cache_hours: float = 20                  # answers older than this are fetched again
 
 
 def load(path: str | Path) -> Config:
@@ -29,6 +32,10 @@ def load(path: str | Path) -> Config:
         max_stops=trip.get("max_stops", 2),
         currency=raw.get("currency", "PLN").upper(),
     )
+    g = raw.get("google", {})
+    cfg.delay = g.get("delay", cfg.delay)
+    cfg.backoff = tuple(g.get("backoff", cfg.backoff))
+    cfg.cache_hours = g.get("cache_hours", cfg.cache_hours)
     if cfg.depart_to < cfg.depart_from or cfg.max_days < cfg.min_days:
         raise SystemExit("config: date range or trip length range is reversed")
     return cfg

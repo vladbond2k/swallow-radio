@@ -3,7 +3,7 @@ name: Search flights
 on:
   workflow_dispatch:          # "Run workflow" button in the Actions tab
   schedule:
-    - cron: "17 5 * * *"      # daily, ~07:17 Warsaw time
+    - cron: "17 */4 * * *"    # every 4 hours; each run continues where Google stopped the previous one
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   search:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -27,8 +27,18 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: calendar-${{ github.run_id }}
+          restore-keys: calendar-
       - name: Search
         run: jpfly -c config.toml -o site
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .cache
+          key: calendar-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

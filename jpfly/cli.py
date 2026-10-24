@@ -17,12 +17,12 @@ def main():
     if not Path(a.config).exists():
         sys.exit(f"no {a.config}; copy config.example.toml to {a.config}")
     cfg = load(a.config)
-    opts, errors = search(cfg, demo=a.demo)
+    opts, st = search(cfg, demo=a.demo)
 
     warnings = []
-    if errors:
-        warnings.append(f"{len(errors)} из {len(cfg.home) * (cfg.max_days - cfg.min_days + 1)} запросов "
-                        f"к Google не прошли — часть дат может отсутствовать.")
+    if st["done"] < st["total"]:
+        warnings.append(f"Загружено {st['done']} из {st['total']} календарей — Google ограничивает частоту "
+                        f"запросов, остальное дозагрузится при следующих запусках (каждые несколько часов).")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     write_html(opts, cfg, out / "index.html", warnings, a.demo)

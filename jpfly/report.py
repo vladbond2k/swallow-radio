@@ -12,19 +12,19 @@ from .search import Option
 def write_csv(opts: list[Option], path: Path):
     with path.open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["price", "home", "out", "back", "days"])
+        w.writerow(["price", "home", "japan", "out", "back", "days"])
         for o in opts:
-            w.writerow([round(o.price), o.home, o.out, o.back, o.days])
+            w.writerow([round(o.price), o.home, o.dest, o.out, o.back, o.days])
 
 
 def console(opts: list[Option], cfg: Config, n: int = 10):
     print(f"\nTop {min(n, len(opts))} of {len(opts)} ({cfg.currency}):")
     for o in opts[:n]:
-        print(f"  {o.price:>7.0f}  {o.out:%a %d.%m} → {o.back:%a %d.%m} ({o.days}d) from {o.home}")
+        print(f"  {o.price:>7.0f}  {o.out:%a %d.%m} → {o.back:%a %d.%m} ({o.days}d) {o.home}⇄{o.dest}")
 
 
 def write_html(opts: list[Option], cfg: Config, path: Path, warnings: list[str], demo: bool):
-    data = [[o.home, o.out.isoformat(), o.days, round(o.price)] for o in opts]
+    data = [[o.home, o.dest, o.out.isoformat(), o.days, round(o.price)] for o in opts]
     meta = {
         "cur": cfg.currency, "homes": cfg.home, "japan": cfg.japan,
         "min": cfg.min_days, "max": cfg.max_days,
@@ -65,6 +65,7 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
 <div class=ctl>
  <label>Длина поездки<select id=len></select></label>
  <label>Откуда<select id=home></select></label>
+ <label>Куда<select id=jp></select></label>
 </div>
 <h2>Самые дешёвые варианты</h2>
 <div class=list id=top></div>
@@ -75,7 +76,7 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
 <p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом.
 Точный рейс и цену смотри по ссылке перед покупкой.</p>
 <script>
-const D=__DATA__.map(([home,out,days,price])=>({home,out,days,price,total:price})), M=__META__;
+const D=__DATA__.map(([home,dest,out,days,price])=>({home,dest,out,days,price,total:price})), M=__META__;
 const $=id=>document.getElementById(id);
 const money=v=>new Intl.NumberFormat("ru-RU").format(Math.round(v))+(M.cur=="PLN"?" zł":" "+M.cur);
 const dt=s=>new Date(s+"T12:00");
@@ -83,27 +84,28 @@ const pad=n=>String(n).padStart(2,"0");
 const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 const addDays=(s,n)=>{const d=dt(s);d.setDate(d.getDate()+n);return iso(d)};
 const fd=s=>dt(s).toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"short"});
-const NAMES={WRO:"Вроцлав",WAW:"Варшава",BER:"Берлин",PRG:"Прага",VIE:"Вена",KTW:"Катовице",POZ:"Познань",KRK:"Краков",GDN:"Гданьск",BUD:"Будапешт",MUC:"Мюнхен",FRA:"Франкфурт"};
+const NAMES={HND:"Токио Ханэда",NRT:"Токио Нарита",KIX:"Осака",ITM:"Осака Итами",NGO:"Нагоя",FUK:"Фукуока",CTS:"Саппоро",OKA:"Окинава",WRO:"Вроцлав",WAW:"Варшава",BER:"Берлин",PRG:"Прага",VIE:"Вена",KTW:"Катовице",POZ:"Познань",KRK:"Краков",GDN:"Гданьск",BUD:"Будапешт",MUC:"Мюнхен",FRA:"Франкфурт"};
 const city=c=>NAMES[c]?`${NAMES[c]} (${c})`:c;
 const gUrl=o=>"https://www.google.com/travel/flights?q="+encodeURIComponent(
-  `Flights from ${o.home} to Japan on ${o.out} through ${addDays(o.out,o.days)}`)+"&curr="+M.cur+"&hl=ru";
+  `Flights from ${o.home} to ${o.dest} on ${o.out} through ${addDays(o.out,o.days)}`)+"&curr="+M.cur+"&hl=ru";
 const dayWord=n=>n%10==1&&n%100!=11?"день":[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?"дня":"дней";
 
-$("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · в любой аэропорт Японии · обновлено ${M.updated}`;
+$("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · ${M.homes.length} аэропортов вылета ⇄ ${M.japan.map(c=>NAMES[c]||c).join(", ")} · обновлено ${M.updated}`;
 $("warn").innerHTML=(M.demo?["ДЕМО: цены выдуманные, только чтобы показать вид"]:[]).concat(M.warnings)
   .map(w=>`<p class=warn>⚠ ${w.replace(/</g,"&lt;")}</p>`).join("")+(D.length?"":"<p class=warn>Ничего не найдено.</p>");
 $("len").add(new Option("любая",""));for(let n=M.min;n<=M.max;n++)$("len").add(new Option(`${n} ${dayWord(n)}`,n));
 $("home").add(new Option("откуда угодно",""));M.homes.forEach(h=>$("home").add(new Option(city(h),h)));
+$("jp").add(new Option("любой аэропорт Японии",""));M.japan.forEach(h=>$("jp").add(new Option(city(h),h)));
 
 let selDay=null;
 const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
-  <div class=s>из ${city(o.home)}</div></div>
+  <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div></div>
  <a href="${gUrl(o)}" target=_blank rel=noopener>Google Flights ↗</a></div>`;
 
 function render(){
-  const L=$("len").value,H=$("home").value;
-  const R=D.filter(o=>(!L||o.days==L)&&(!H||o.home==H)).sort((a,b)=>a.total-b.total);
+  const L=$("len").value,H=$("home").value,J=$("jp").value;
+  const R=D.filter(o=>(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J)).sort((a,b)=>a.total-b.total);
   // top list: best per (out day, length), so it's not the same dates repeated for every airport
   const seen=new Set(),top=[];for(const o of R){const k=o.out+o.days;if(!seen.has(k)){seen.add(k);top.push(o)}if(top.length==10)break}
   $("top").innerHTML=top.map(card).join("")||"<p class=mut>Нет вариантов под эти фильтры.</p>";
@@ -130,5 +132,5 @@ function render(){
     $("day").innerHTML=X.slice(0,40).map(card).join("");
   }
 }
-$("len").onchange=$("home").onchange=render;render();
+$("len").onchange=$("home").onchange=$("jp").onchange=render;render();
 </script></body></html>"""
