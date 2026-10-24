@@ -29,7 +29,7 @@ def main():
     if st["complete"] < st["total"]:
         warnings.append(f"Собрано {st['complete']} из {st['total']} календарей полностью, ещё {st['with_data'] - st['complete']} "
                         f"частично. Google отдаёт данные порциями и ограничивает частоту запросов — "
-                        f"календарь дополняется каждые 2 часа.")
+                        f"календарь дополняется каждые 30 минут.")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     write_html(opts, cfg, out / "index.html", warnings, a.demo)

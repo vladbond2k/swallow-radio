@@ -3,7 +3,7 @@ name: Search flights
 on:
   workflow_dispatch:          # "Run workflow" button in the Actions tab
   schedule:
-    - cron: "17 */2 * * *"    # every 2 hours; each run continues where Google stopped the previous one
+    - cron: "7,37 * * * *"    # every 30 min; each run continues where Google stopped the previous one
 
 permissions:
   contents: read
@@ -45,6 +45,7 @@ jobs:
       - name: Connect VPN
         if: env.WG_CONF != ''
         continue-on-error: true      # a broken config shouldn't kill the run; this runner then uses its own IP
+        timeout-minutes: 3
         run: .github/scripts/vpn-up.sh
       - name: Search
         run: jpfly -c config.toml --shard ${{ matrix.shard }}/5 -o /tmp/unused
