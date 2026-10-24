@@ -5,7 +5,7 @@ market = "PL"            # country whose prices Google shows (independent of VPN
 
 [trip]
 depart_from = "2027-01-15"   # any day in this window is fine to leave
-depart_to   = "2027-04-30"   # (Google only knows prices ~10 months ahead)
+depart_to   = "2027-06-30"   # (Google only knows prices ~10 months ahead)
 min_days = 14                # trip length in days
 max_days = 21
 max_stops = 2                # 0 = direct only, 1, 2, or -1 = any
@@ -25,5 +25,5 @@ airports = ["HND", "NRT", "KIX"]
 delay = 3                    # seconds between requests
 backoff = [60]               # if Google refuses: wait this long and retry; then stop until the next run
 cache_hours = 30             # prices older than this are dropped and asked again
-verify_top = 300             # how many of the cheapest calendar dates to re-check with the layover limit
+verify_top = 400             # how many of the cheapest calendar dates to re-check with the layover limit
 verify_per_run = 8           # re-checks per runner per run; the rest of Google's quota fills the calendar
