@@ -26,24 +26,8 @@ def run(home, dest, days, start="2027-02-01", end="2027-03-31"):
     return len(res)
 
 
-homes = ["WRO", "KTW", "POZ", "KRK", "PRG", "WAW", "BER", "VIE"]
-dests = ["HND", "NRT", "KIX", "NGO", "FUK", "CTS", "OKA"]
-pairs = list(itertools.product(homes, dests))
-empty_streak, n = 0, 0
-for (h, d), days in zip(itertools.cycle(pairs), itertools.cycle(range(14, 22))):
-    n += 1
-    if n > 120:
-        break
-    got = run(h, d, days)
-    empty_streak = empty_streak + 1 if got == 0 else 0
-    if empty_streak >= 3:
-        for wait in (30, 90, 180):
-            print(f"--- 3 empty in a row after {n} requests; sleeping {wait}s", flush=True)
-            time.sleep(wait)
-            if run(h, d, days):
-                empty_streak = 0
-                break
-        else:
-            print("--- not recovering, stop", flush=True)
-            break
-    time.sleep(1.5)
+# Warm-up hypothesis: routes queried ~15 min ago (slow, 1 date) — do they now return the full calendar?
+for h, d, days in [("WRO", "KIX", 16), ("WRO", "NGO", 17), ("KTW", "HND", 21), ("POZ", "NRT", 21),
+                   ("WRO", "KIX", 16)]:
+    run(h, d, days)
+    time.sleep(2)
