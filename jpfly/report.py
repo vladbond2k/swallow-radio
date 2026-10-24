@@ -64,16 +64,30 @@ th.sorted{color:var(--fg)}
 td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
 td.f{white-space:normal;font-size:12px;min-width:320px}
 tr:hover td{background:var(--hi)}
+details.fbox{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:14px 0}
+details.fbox summary{padding:10px 12px;cursor:pointer;font-weight:600}
+details.fbox .filters{border:0;margin:0;padding:0 12px 12px;background:none}
+.sortm{display:none}
+@media (max-width:700px){
+ thead{display:none}table,tbody,tr,td{display:block}
+ tr{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:10px 12px;background:var(--card);
+  display:grid!important;grid-template-columns:auto 1fr;gap:2px 14px}
+ td{border:0!important;padding:0;white-space:normal;background:none!important}
+ td.p{grid-row:span 2;font-size:20px}td.f{grid-column:1/-1;min-width:0;margin-top:4px}td.b{grid-column:1/-1}
+ td.b a{display:inline-block;margin:4px 14px 0 0}td.b br{display:none}
+ .sortm{display:flex}.filters input[type=number]{width:70px}
+}
 .p{font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
 .tag{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--mut)}
 a{color:var(--acc)}
 </style></head><body>
 <h1>Cheapest trips to Japan</h1>
 <div class=mut>__SUB__</div>__WARN__
-<p class=mut>Google = live prices (two one-way tickets, or one ticket if that was cheaper). Aviasales = round-trip prices
-other people found recently: may be outdated, re-check on the site. Always confirm the final price via the link.</p>
-<div class=filters>
- <div class=grp>Source<span><label class=chk><input type=checkbox id=sG checked>Google</label>
+<p class=mut>Google = live prices (two one-way tickets, or one ticket if that was cheaper).<span id=avnote> Aviasales = round-trip prices
+other people found recently: may be outdated, re-check on the site.</span> Always confirm the final price via the link.</p>
+<details class=fbox id=fd><summary>Filters · <span class=mut id=cnt></span></summary><div class=filters>
+ <label class=sortm>Sort by<select id=sortm><option value=total>price</option><option value=out>departure date</option><option value=days>trip length</option><option value=stops>stops</option></select></label>
+ <div class=grp id=srcgrp>Source<span><label class=chk><input type=checkbox id=sG checked>Google</label>
   <label class=chk><input type=checkbox id=sA checked>Aviasales</label></span></div>
  <label>Leave from<input type=date id=d1></label><label>Leave until<input type=date id=d2></label>
  <label>Days min<input type=number id=n1></label><label>Days max<input type=number id=n2></label>
@@ -82,8 +96,7 @@ other people found recently: may be outdated, re-check on the site. Always confi
  <label>Japan airport<select id=jp><option value="">any</option></select></label>
  <label>Same airport in/out<select id=same><option value="">any</option><option value=1>yes</option></select></label>
  <label>Max price (__CUR__)<input type=number id=pmax></label>
- <span class=mut id=cnt></span>
-</div>
+</div></details>
 <div class=wrap><table><thead><tr>
  <th data-k=total>Total</th><th data-k=out>Dates</th><th data-k=days>Days</th><th data-k=jp_in>Route</th>
  <th data-k=stops>Stops</th><th data-k=source>Source</th><th>Flights</th><th>Book</th>
@@ -96,6 +109,9 @@ for(const [id,keys] of [["home",["home_out","home_back"]],["jp",["jp_in","jp_out
   [...new Set(D.flatMap(r=>keys.map(k=>r[k])))].sort().forEach(v=>$(id).add(new Option(v,v)));
 }
 let sortK="total",asc=true;
+if(new Set(D.map(r=>r.source)).size<2){$("srcgrp").style.display="none";if(!D.some(r=>r.source=="Aviasales"))$("avnote").style.display="none"}
+if(innerWidth>700)$("fd").open=true;
+$("sortm").onchange=e=>{sortK=e.target.value;asc=true;render()};
 function render(){
   const g=$("sG").checked,a=$("sA").checked,d1=$("d1").value,d2=$("d2").value,n1=+$("n1").value||0,n2=+$("n2").value||999,
     st=+$("st").value,h=$("home").value,j=$("jp").value,same=$("same").value,pm=+$("pmax").value||1e9;
@@ -105,11 +121,11 @@ function render(){
   $("cnt").textContent=`${R.length} of ${D.length} trips`+(R.length>300?" (showing 300)":"");
   $("tb").innerHTML=R.slice(0,300).map(r=>`<tr>
    <td class=p>${r.total}${r.extras?`<div class=mut style="font-weight:400;font-size:11px">${r.price}+${r.extras}</div>`:""}</td>
-   <td>${fmt(r.out)}<br>${fmt(r.ret)}</td><td>${r.days}</td>
-   <td>${esc(r.home_out)}→${esc(r.jp_in)}<br>${esc(r.jp_out)}→${esc(r.home_back)}</td><td>${r.stops}</td>
+   <td>${fmt(r.out)} → ${fmt(r.ret)}</td><td class=mut>${r.days} days</td>
+   <td>${esc(r.home_out)}→${esc(r.jp_in)}<br>${esc(r.jp_out)}→${esc(r.home_back)}</td><td class=mut>${r.stops?r.stops+" stop"+(r.stops>1?"s":""):"direct"}</td>
    <td>${esc(r.source)}<br><span class=tag>${esc(r.kind)}</span></td>
    <td class=f>${esc(r.out_desc)}<br>${esc(r.ret_desc)}</td>
-   <td>${r.links.map(([l,u])=>`<a href="${esc(u)}" target=_blank rel=noopener>${esc(l)}</a>`).join("<br>")}</td></tr>`).join("");
+   <td class=b>${r.links.map(([l,u])=>`<a href="${esc(u)}" target=_blank rel=noopener>${esc(l)}</a>`).join("<br>")}</td></tr>`).join("");
   document.querySelectorAll("th[data-k]").forEach(th=>th.classList.toggle("sorted",th.dataset.k==sortK));
 }
 document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{asc=sortK==th.dataset.k?!asc:true;sortK=th.dataset.k;render()});
