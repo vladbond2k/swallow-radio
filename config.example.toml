@@ -1,0 +1,46 @@
+# Copy to config.toml and edit.  All airport codes are IATA.
+
+currency = "EUR"
+adults = 1
+max_stops = 2            # max stops inside one ticket (Google's own connections)
+workers = 3              # parallel requests to Google Flights; keep it low or you'll get blocked
+delay = 1.0              # seconds each worker sleeps between requests
+cache_hours = 12         # re-use fetched results for this long (.cache/)
+
+[trip]
+depart_from = "2027-02-20"   # earliest day you can leave home
+depart_to   = "2027-03-01"   # latest day you can leave home
+min_days = 14                # trip length = days between leaving home and leaving Japan
+max_days = 21
+open_jaw = true              # allow e.g. fly into Tokyo, fly home from Osaka
+mix_home = true              # allow leaving from one home airport and returning to another
+
+# Home airports. extra_cost = ground transport to/from that airport (each way, in `currency`).
+[[origins]]
+code = "WAW"
+extra_cost = 0
+
+[[origins]]
+code = "WMI"
+extra_cost = 5
+
+[[origins]]
+code = "BER"
+extra_cost = 40
+
+# Where in Japan you're fine landing / leaving from.
+[japan]
+airports = ["HND", "NRT", "KIX", "NGO", "FUK", "CTS"]
+
+# Self-transfer: two separate tickets glued at a hub (e.g. cheap flight to Istanbul,
+# then a separate ticket Istanbul -> Tokyo). Finds deals Google doesn't combine itself.
+# Each hub adds a lot of requests; trim the list or run with --no-hubs for a quick pass.
+[hubs]
+enabled = true
+airports = ["IST", "DXB", "AUH", "DOH", "PEK", "PVG", "ICN", "HKG", "TPE", "BKK"]
+min_connection_hours = 3     # separate tickets: no protection if delayed, keep a buffer
+max_connection_hours = 24
+japan_airports = ["HND", "NRT", "KIX"]   # Japan airports to check from hubs (subset to save requests)
+
+[check]
+single_ticket_top = 30       # re-price the N best combos as one round-trip / multi-city ticket

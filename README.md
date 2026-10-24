@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# jpfly — дешёвые билеты в Японию перебором
 
-## Getting Started
+Перебирает Google Flights по всем комбинациям и собирает самую дешёвую поездку туда-обратно:
 
-First, run the development server:
+- **все даты вылета** в окне × **все длины поездки** (напр. 14–21 день);
+- **несколько домашних аэропортов** (с учётом стоимости доехать до каждого);
+- **все аэропорты Японии** (HND/NRT/KIX/NGO/FUK/CTS), включая open-jaw: прилетел в Токио, улетел из Осаки;
+- **self-transfer через хабы** — два отдельных билета, склеенных в IST/DOH/ICN/PVG/TPE/… (то, что агрегаторы сами не комбинируют), с проверкой времени на пересадку;
+- топ-комбинации **перепроверяет как один билет** (round-trip / multi-city) — у классических авиакомпаний RT часто дешевле двух one-way.
+
+На выходе: `out/report.html` (календарь цен «дата вылета × длина поездки» + топ-100 с ссылками на Google Flights) и `out/trips.csv` со всеми вариантами.
+
+## Запуск
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+jpfly --init          # создаст config.toml
+# отредактируй config.toml: домашние аэропорты, даты, длина поездки, валюта
+jpfly --no-hubs       # быстрый проход: только прямые билеты (~500 запросов)
+jpfly                 # полный проход с хабами (~2000 запросов, 20–40 мин)
+open out/report.html
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Попробовать без сети: `jpfly --demo` (фейковые цены).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Нюансы
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- Данные — скрейпинг Google Flights через [fast-flights](https://github.com/AWeirdDev/fast-flights). Google может начать отдавать капчу при большом числе запросов: держи `workers` 2–3 и `delay` ≥ 1. Результаты кешируются в `.cache/` (`cache_hours`), так что упавший прогон можно просто перезапустить — дозапросит только недостающее.
+- Цены — снимок на момент запроса; перед покупкой проверяй по ссылке.
+- Self-transfer = отдельные билеты: при задержке первого рейса второй сгорит. Отсюда `min_connection_hours`. Проверь транзитные/визовые правила хаба (в Китае, напр., нужен 240-часовой безвизовый транзит или виза в зависимости от паспорта).
+- Бюджетных лоукостеров (Wizz, Ryanair, Peach, Zipair…) Google показывает не всех — для участков до хаба стоит глянуть их сайты руками.
