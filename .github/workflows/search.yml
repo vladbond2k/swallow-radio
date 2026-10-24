@@ -48,7 +48,10 @@ jobs:
         timeout-minutes: 3
         run: .github/scripts/vpn-up.sh
       - name: Search
-        run: jpfly -c config.toml --shard ${{ matrix.shard }}/5 -o /tmp/unused
+        run: |
+          # if the VPN came up half-broken, drop it and use the runner's own connection
+          curl -s --max-time 10 -o /dev/null https://www.google.com || sudo wg-quick down wg0 || true
+          jpfly -c config.toml --shard ${{ matrix.shard }}/5 -o /tmp/unused
       - name: Disconnect VPN
         if: always() && env.WG_CONF != ''
         run: sudo wg-quick down wg0 || true
