@@ -1,6 +1,7 @@
 # Search settings. Edit and rerun (locally: `jpfly`; online: Actions -> Search flights -> Run workflow).
 
 currency = "PLN"
+market = "PL"            # country whose prices Google shows (independent of VPN location)
 
 [trip]
 depart_from = "2027-01-15"   # any day in this window is fine to leave

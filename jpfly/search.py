@@ -67,7 +67,7 @@ def _calendar(cfg: Config, home: str, dest: str, days: int, start: date, end: da
         stops=stops.get(cfg.max_stops, MaxStops.ANY), seat_type=SeatType.ECONOMY,
         from_date=start.isoformat(), to_date=end.isoformat(), duration=days,
     )
-    res = SearchDates().search(filters, currency=cfg.currency, language="en")
+    res = SearchDates().search(filters, currency=cfg.currency, language="en", country=cfg.market)
     if res is None:          # fli returns None when Google sends back an empty error payload
         raise Blocked()
     return {r.date[0].date().isoformat(): r.price for r in res}

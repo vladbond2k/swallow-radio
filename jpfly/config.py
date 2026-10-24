@@ -14,6 +14,7 @@ class Config:
     max_days: int
     max_stops: int = 2
     currency: str = "PLN"
+    market: str = "PL"                       # Google prices for this country, whatever the VPN exit is
     delay: float = 3.0                       # pause between requests, seconds
     backoff: tuple = (60,)          # waits after Google refuses, then give up for this run
     cache_hours: float = 30                  # answers older than this are fetched again
@@ -31,6 +32,7 @@ def load(path: str | Path) -> Config:
         max_days=trip["max_days"],
         max_stops=trip.get("max_stops", 2),
         currency=raw.get("currency", "PLN").upper(),
+        market=raw.get("market", "PL").upper(),
     )
     g = raw.get("google", {})
     cfg.delay = g.get("delay", cfg.delay)
