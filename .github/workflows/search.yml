@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write              # lets a run start the next one (GitHub's cron fires late or not at all)
 
 concurrency:
   group: pages
@@ -94,3 +95,14 @@ jobs:
           path: site
       - id: deploy
         uses: actions/deploy-pages@v4
+      - name: Chain the next run while data is still missing
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if python3 -c "import json,sys; sys.exit(0 if json.load(open('site/status.json'))['done'] else 1)"; then
+            echo "all calendars and checks done; next update comes from the schedule"
+          else
+            sleep 120   # give Google's per-IP limits a moment
+            gh workflow run search.yml --ref "${GITHUB_REF_NAME}"
+          fi

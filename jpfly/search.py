@@ -354,6 +354,8 @@ class Searcher:
             "cal_total": len(self.cal_jobs),
             "cal_complete": sum(self.cal_complete(k) for k in self.cal_jobs),
             "cal_with_data": sum(bool(self.cal_prices(k)) for k in self.cal_jobs),
+            # some routes never return a full calendar, so "asked at least once" is what counts as covered
+            "cal_asked": sum(bool(self.store.read(self.cal_name(k))) for k in self.cal_jobs),
             "verified": sum(1 for o in cands[: self.cfg.verify_top] if self.verified(o)),
             "verify_top": min(self.cfg.verify_top, len(cands)),
             "limited": self.limited,
