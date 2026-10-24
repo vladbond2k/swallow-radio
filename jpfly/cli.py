@@ -36,5 +36,5 @@ def main():
     write_csv(opts, out / "trips.csv")
     console(opts, cfg)
     print(f"\nopen {out / 'index.html'}")
-    if not opts:
+    if not opts and a.shard == "1/1":   # parallel runners may legitimately end up with nothing
         sys.exit("nothing found; see errors above")
