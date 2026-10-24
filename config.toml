@@ -20,5 +20,5 @@ airports = ["HND", "NRT", "KIX"]
 
 [google]
 delay = 3                    # seconds between requests
-backoff = [60, 180, 420]     # if Google refuses: wait this long and retry; then stop until the next run
-cache_hours = 20             # reuse answers younger than this (runs every few hours fill the gaps)
+backoff = [60]               # if Google refuses: wait this long and retry; then stop until the next run
+cache_hours = 30             # prices older than this are dropped and asked again

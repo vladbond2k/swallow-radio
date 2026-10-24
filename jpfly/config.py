@@ -15,8 +15,8 @@ class Config:
     max_stops: int = 2
     currency: str = "PLN"
     delay: float = 3.0                       # pause between requests, seconds
-    backoff: tuple = (60, 180, 420)          # waits after Google refuses, then give up for this run
-    cache_hours: float = 20                  # answers older than this are fetched again
+    backoff: tuple = (60,)          # waits after Google refuses, then give up for this run
+    cache_hours: float = 30                  # answers older than this are fetched again
 
 
 def load(path: str | Path) -> Config:
