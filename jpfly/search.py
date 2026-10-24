@@ -13,12 +13,7 @@ class Option:
     home: str
     out: date
     back: date
-    price: float      # tickets, round trip
-    extra: float      # getting to the home airport and back
-
-    @property
-    def total(self) -> float:
-        return self.price + self.extra
+    price: float      # round trip, 1 adult
 
     @property
     def days(self) -> int:
@@ -75,6 +70,6 @@ def search(cfg: Config, demo: bool = False) -> tuple[list[Option], list[str]]:
             continue
         for out, price in rows:
             if cfg.depart_from <= out <= cfg.depart_to and price > 0:
-                opts.append(Option(home, out, out + timedelta(days=days), price, cfg.home[home]))
-    opts.sort(key=lambda o: o.total)
+                opts.append(Option(home, out, out + timedelta(days=days), price))
+    opts.sort(key=lambda o: o.price)
     return opts, errors

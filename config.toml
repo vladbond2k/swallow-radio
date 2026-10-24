@@ -9,26 +9,9 @@ min_days = 14                # trip length in days
 max_days = 21
 max_stops = 2                # 0 = direct only, 1, 2, or -1 = any
 
-# Where you can fly from. extra_cost = getting to that airport and back (round trip, in `currency`).
-[[home]]
-code = "WRO"   # Wroclaw
-extra_cost = 0
-
-[[home]]
-code = "WAW"   # Warsaw, ~3.5h train
-extra_cost = 250
-
-[[home]]
-code = "BER"   # Berlin, ~4.5h bus
-extra_cost = 250
-
-[[home]]
-code = "PRG"   # Prague, ~4.5h bus
-extra_cost = 250
-
-[[home]]
-code = "VIE"   # Vienna, ~6h bus/train
-extra_cost = 350
+# Airports you can fly from (all reachable by car from Wroclaw). Prices are tickets only.
+[home]
+airports = ["WRO", "KTW", "POZ", "KRK", "PRG", "WAW", "BER", "VIE"]
 
 # Any of these is fine to land in / fly back from.
 [japan]

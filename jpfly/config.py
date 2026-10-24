@@ -6,7 +6,7 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    home: dict[str, float]          # airport -> ground cost there and back
+    home: list[str]
     japan: list[str]
     depart_from: date
     depart_to: date
@@ -20,7 +20,7 @@ def load(path: str | Path) -> Config:
     raw = tomllib.loads(Path(path).read_text())
     trip = raw["trip"]
     cfg = Config(
-        home={h["code"].upper(): h.get("extra_cost", 0) for h in raw["home"]},
+        home=[a.upper() for a in raw["home"]["airports"]],
         japan=[a.upper() for a in raw["japan"]["airports"]],
         depart_from=date.fromisoformat(trip["depart_from"]),
         depart_to=date.fromisoformat(trip["depart_to"]),

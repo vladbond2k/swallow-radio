@@ -12,21 +12,21 @@ from .search import Option
 def write_csv(opts: list[Option], path: Path):
     with path.open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["total", "ticket_price", "ground_cost", "home", "out", "back", "days"])
+        w.writerow(["price", "home", "out", "back", "days"])
         for o in opts:
-            w.writerow([round(o.total), round(o.price), round(o.extra), o.home, o.out, o.back, o.days])
+            w.writerow([round(o.price), o.home, o.out, o.back, o.days])
 
 
 def console(opts: list[Option], cfg: Config, n: int = 10):
-    print(f"\nTop {min(n, len(opts))} of {len(opts)} ({cfg.currency}, incl. getting to the airport):")
+    print(f"\nTop {min(n, len(opts))} of {len(opts)} ({cfg.currency}):")
     for o in opts[:n]:
-        print(f"  {o.total:>7.0f}  {o.out:%a %d.%m} → {o.back:%a %d.%m} ({o.days}d) from {o.home}")
+        print(f"  {o.price:>7.0f}  {o.out:%a %d.%m} → {o.back:%a %d.%m} ({o.days}d) from {o.home}")
 
 
 def write_html(opts: list[Option], cfg: Config, path: Path, warnings: list[str], demo: bool):
-    data = [[o.home, o.out.isoformat(), o.days, round(o.price), round(o.extra)] for o in opts]
+    data = [[o.home, o.out.isoformat(), o.days, round(o.price)] for o in opts]
     meta = {
-        "cur": cfg.currency, "homes": list(cfg.home), "japan": cfg.japan,
+        "cur": cfg.currency, "homes": cfg.home, "japan": cfg.japan,
         "min": cfg.min_days, "max": cfg.max_days,
         "from": cfg.depart_from.isoformat(), "to": cfg.depart_to.isoformat(),
         "updated": datetime.now().strftime("%d.%m.%Y %H:%M"), "warnings": warnings, "demo": demo,
@@ -72,10 +72,10 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
 <p class=mut style="margin-top:-6px">Самая низкая цена туда-обратно при вылете в этот день. Нажми на день — покажу варианты.</p>
 <div class=months id=cal></div>
 <h2 id=dayh style="display:none"></h2><div class=list id=day></div>
-<p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом, плюс дорога до аэропорта вылета.
+<p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом.
 Точный рейс и цену смотри по ссылке перед покупкой.</p>
 <script>
-const D=__DATA__.map(([home,out,days,price,extra])=>({home,out,days,price,extra,total:price+extra})), M=__META__;
+const D=__DATA__.map(([home,out,days,price])=>({home,out,days,price,total:price})), M=__META__;
 const $=id=>document.getElementById(id);
 const money=v=>new Intl.NumberFormat("ru-RU").format(Math.round(v))+(M.cur=="PLN"?" zł":" "+M.cur);
 const dt=s=>new Date(s+"T12:00");
@@ -98,7 +98,7 @@ $("home").add(new Option("откуда угодно",""));M.homes.forEach(h=>$("
 let selDay=null;
 const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
-  <div class=s>из ${city(o.home)}${o.extra?` · билеты ${money(o.price)} + дорога ${money(o.extra)}`:""}</div></div>
+  <div class=s>из ${city(o.home)}</div></div>
  <a href="${gUrl(o)}" target=_blank rel=noopener>Google Flights ↗</a></div>`;
 
 function render(){
