@@ -3,7 +3,7 @@ name: Search flights
 on:
   workflow_dispatch:          # "Run workflow" button in the Actions tab
   schedule:
-    - cron: "*/15 * * * *"    # every 15 min while collecting; each run continues where Google stopped the last
+    - cron: "17 */6 * * *"    # refresh every 6 h (when GitHub fires it); runs chain themselves while data is missing
 
 permissions:
   contents: read
