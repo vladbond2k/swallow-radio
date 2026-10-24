@@ -44,11 +44,8 @@ jobs:
           restore-keys: calendar-
       - name: Connect VPN
         if: env.WG_CONF != ''
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq wireguard-tools resolvconf >/dev/null
-          printf '%s\n' "$WG_CONF" | sudo tee /etc/wireguard/wg0.conf >/dev/null
-          sudo wg-quick up wg0
-          echo "public IP now: $(curl -s --max-time 10 https://api.ipify.org)"
+        continue-on-error: true      # a broken config shouldn't kill the run; this runner then uses its own IP
+        run: .github/scripts/vpn-up.sh
       - name: Search
         run: jpfly -c config.toml --shard ${{ matrix.shard }}/5 -o /tmp/unused
       - name: Disconnect VPN
