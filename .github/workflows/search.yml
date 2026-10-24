@@ -17,7 +17,7 @@ concurrency:
 jobs:
   search:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -27,15 +27,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - uses: actions/cache@v4      # lets a rerun after a Google block skip what was already fetched
-        with:
-          path: .cache
-          key: flights-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: flights-
       - name: Search
-        env:
-          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
-        run: jpfly -c config.toml -o site && cp site/report.html site/index.html
+        run: jpfly -c config.toml -o site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

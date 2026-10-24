@@ -1,134 +1,134 @@
-"""CSV + a single self-contained HTML page with a sortable, filterable table."""
+"""Single self-contained HTML page: price calendar + cheapest options, plus a CSV."""
 
 import csv
 import json
+from datetime import datetime
 from pathlib import Path
 
 from .config import Config
-from .trips import Trip
+from .search import Option
 
 
-def _row(t: Trip) -> dict:
-    return {
-        "source": t.source, "kind": t.kind, "total": round(t.total), "price": round(t.price),
-        "extras": round(t.extras), "out": t.out_day.isoformat(), "ret": t.ret_day.isoformat(), "days": t.days,
-        "home_out": t.home_out, "jp_in": t.jp_in, "jp_out": t.jp_out, "home_back": t.home_back,
-        "stops": max(s for s in (t.stops_out, t.stops_back, 0) if s is not None),
-        "airlines": t.airlines, "out_desc": t.out_desc, "ret_desc": t.ret_desc, "links": t.links,
-    }
-
-
-def console(trips: list[Trip], cfg: Config, n: int = 10):
-    print(f"\nTop {min(n, len(trips))} of {len(trips)} ({cfg.currency}, incl. ground costs):")
-    for i, t in enumerate(trips[:n], 1):
-        print(f"{i:>2}. {t.total:>6.0f}  {t.out_day:%a %d.%m}→{t.ret_day:%a %d.%m} ({t.days}d)  "
-              f"{t.home_out}→{t.jp_in} … {t.jp_out}→{t.home_back}  {t.source}: {t.kind}")
-
-
-def write_csv(trips: list[Trip], path: Path):
-    rows = [_row(t) for t in trips]
+def write_csv(opts: list[Option], path: Path):
     with path.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0]))
-        w.writeheader()
-        for r in rows:
-            r["links"] = " ".join(u for _, u in r["links"])
-            w.writerow(r)
+        w = csv.writer(f)
+        w.writerow(["total", "ticket_price", "ground_cost", "home", "out", "back", "days"])
+        for o in opts:
+            w.writerow([round(o.total), round(o.price), round(o.extra), o.home, o.out, o.back, o.days])
 
 
-def write_html(trips: list[Trip], cfg: Config, path: Path, warnings: list[str]):
-    data = json.dumps([_row(t) for t in trips], ensure_ascii=False).replace("</", "<\\/")
-    homes = ", ".join(cfg.origins)
-    sub = (f"{homes} → {', '.join(cfg.japan)} · leave {cfg.depart_from:%d %b}–{cfg.depart_to:%d %b %Y} · "
-           f"{cfg.min_days}–{cfg.max_days} days · {cfg.currency}, {cfg.adults} adult(s), totals include ground costs")
-    warn = "".join(f"<p class=warn>⚠ {w}</p>" for w in warnings)
-    path.write_text(PAGE.replace("__SUB__", sub).replace("__WARN__", warn)
-                    .replace("__CUR__", cfg.currency).replace("__DATA__", data))
+def console(opts: list[Option], cfg: Config, n: int = 10):
+    print(f"\nTop {min(n, len(opts))} of {len(opts)} ({cfg.currency}, incl. getting to the airport):")
+    for o in opts[:n]:
+        print(f"  {o.total:>7.0f}  {o.out:%a %d.%m} → {o.back:%a %d.%m} ({o.days}d) from {o.home}")
 
 
-PAGE = r"""<!doctype html><html><head><meta charset=utf-8>
-<meta name=viewport content="width=device-width,initial-scale=1"><title>Japan Flights</title>
+def write_html(opts: list[Option], cfg: Config, path: Path, warnings: list[str], demo: bool):
+    data = [[o.home, o.out.isoformat(), o.days, round(o.price), round(o.extra)] for o in opts]
+    meta = {
+        "cur": cfg.currency, "homes": list(cfg.home), "japan": cfg.japan,
+        "min": cfg.min_days, "max": cfg.max_days,
+        "from": cfg.depart_from.isoformat(), "to": cfg.depart_to.isoformat(),
+        "updated": datetime.now().strftime("%d.%m.%Y %H:%M"), "warnings": warnings, "demo": demo,
+    }
+    meta_json = json.dumps(meta, ensure_ascii=False).replace("</", "<\\/")
+    path.write_text(PAGE.replace("__DATA__", json.dumps(data)).replace("__META__", meta_json))
+
+
+PAGE = r"""<!doctype html><html lang=ru><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>Билеты в Японию</title>
 <style>
-:root{--bg:#fbfaf7;--fg:#1d1d1f;--mut:#6b6b70;--line:#e4e1da;--acc:#c2410c;--hi:#fff1e8;--card:#fff}
-@media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#ececee;--mut:#9a9aa2;--line:#2c2c31;--acc:#fb923c;--hi:#2a1d14;--card:#1c1c1f}}
+:root{--bg:#fbfaf7;--fg:#1d1d1f;--mut:#6b6b70;--line:#e4e1da;--acc:#c2410c;--card:#fff;--c:194,65,12}
+@media (prefers-color-scheme:dark){:root{--bg:#141416;--fg:#ececee;--mut:#9a9aa2;--line:#2c2c31;--acc:#fb923c;--card:#1c1c1f;--c:251,146,60}}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,sans-serif;margin:0 auto;padding:20px 16px;max-width:1280px}
-h1{font-size:22px;margin:0 0 4px}.mut{color:var(--mut)}.warn{color:var(--acc);margin:4px 0}
-.filters{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:end;background:var(--card);border:1px solid var(--line);
- border-radius:8px;padding:12px;margin:14px 0}
-.filters label,.grp{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
-.filters input,.filters select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 6px}
-.filters input[type=number]{width:80px}.chk{flex-direction:row!important;align-items:center;gap:5px!important;font-size:14px!important;color:var(--fg)!important}
-.wrap{overflow-x:auto}table{border-collapse:collapse;width:100%}
-th{font-size:12px;color:var(--mut);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
-th.sorted{color:var(--fg)}
-td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top;white-space:nowrap}
-td.f{white-space:normal;font-size:12px;min-width:320px}
-tr:hover td{background:var(--hi)}
-details.fbox{background:var(--card);border:1px solid var(--line);border-radius:8px;margin:14px 0}
-details.fbox summary{padding:10px 12px;cursor:pointer;font-weight:600}
-details.fbox .filters{border:0;margin:0;padding:0 12px 12px;background:none}
-.sortm{display:none}
-@media (max-width:700px){
- thead{display:none}table,tbody,tr,td{display:block}
- tr{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:10px 12px;background:var(--card);
-  display:grid!important;grid-template-columns:auto 1fr;gap:2px 14px}
- td{border:0!important;padding:0;white-space:normal;background:none!important}
- td.p{grid-row:span 2;font-size:20px}td.f{grid-column:1/-1;min-width:0;margin-top:4px}td.b{grid-column:1/-1}
- td.b a{display:inline-block;margin:4px 14px 0 0}td.b br{display:none}
- .sortm{display:flex}.filters input[type=number]{width:70px}
-}
-.p{font-weight:700;font-variant-numeric:tabular-nums;font-size:15px}
-.tag{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--mut)}
-a{color:var(--acc)}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;margin:0 auto;padding:20px 16px 60px;max-width:980px}
+h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:26px 0 10px}.mut{color:var(--mut)}.warn{color:var(--acc);margin:6px 0}
+.ctl{display:flex;flex-wrap:wrap;gap:10px 14px;margin:16px 0}
+.ctl label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+.list{display:grid;gap:8px}
+.opt{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.opt .p{font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;min-width:110px}
+.opt .d{flex:1}.opt .s{font-size:13px;color:var(--mut)}
+a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
+.months{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.month h3{font-size:14px;margin:0 0 6px;text-transform:capitalize}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.grid .h{font-size:11px;color:var(--mut);text-align:center}
+.day{border-radius:6px;padding:4px 2px;text-align:center;font-size:11px;min-height:42px;border:1px solid transparent;cursor:pointer;color:var(--fg)}
+.day b{display:block;font-size:13px;font-weight:600}.day.e{cursor:default;color:var(--mut);opacity:.5}
+.day.sel{border-color:var(--fg)}.day:not(.e):hover{border-color:var(--acc)}
+@media (max-width:520px){.opt{flex-wrap:wrap;gap:4px 12px}.opt .p{min-width:0}.opt .d{flex-basis:100%;order:3}}
 </style></head><body>
-<h1>Cheapest trips to Japan</h1>
-<div class=mut>__SUB__</div>__WARN__
-<p class=mut>Google = live prices (two one-way tickets, or one ticket if that was cheaper).<span id=avnote> Aviasales = round-trip prices
-other people found recently: may be outdated, re-check on the site.</span> Always confirm the final price via the link.</p>
-<details class=fbox id=fd><summary>Filters · <span class=mut id=cnt></span></summary><div class=filters>
- <label class=sortm>Sort by<select id=sortm><option value=total>price</option><option value=out>departure date</option><option value=days>trip length</option><option value=stops>stops</option></select></label>
- <div class=grp id=srcgrp>Source<span><label class=chk><input type=checkbox id=sG checked>Google</label>
-  <label class=chk><input type=checkbox id=sA checked>Aviasales</label></span></div>
- <label>Leave from<input type=date id=d1></label><label>Leave until<input type=date id=d2></label>
- <label>Days min<input type=number id=n1></label><label>Days max<input type=number id=n2></label>
- <label>Max stops<select id=st><option value=9>any</option><option value=0>direct</option><option value=1>≤1</option><option value=2>≤2</option></select></label>
- <label>Home airport<select id=home><option value="">any</option></select></label>
- <label>Japan airport<select id=jp><option value="">any</option></select></label>
- <label>Same airport in/out<select id=same><option value="">any</option><option value=1>yes</option></select></label>
- <label>Max price (__CUR__)<input type=number id=pmax></label>
-</div></details>
-<div class=wrap><table><thead><tr>
- <th data-k=total>Total</th><th data-k=out>Dates</th><th data-k=days>Days</th><th data-k=jp_in>Route</th>
- <th data-k=stops>Stops</th><th data-k=source>Source</th><th>Flights</th><th>Book</th>
-</tr></thead><tbody id=tb></tbody></table></div>
+<h1>Дешёвые поездки в Японию</h1>
+<div class=mut id=sub></div><div id=warn></div>
+<div class=ctl>
+ <label>Длина поездки<select id=len></select></label>
+ <label>Откуда<select id=home></select></label>
+</div>
+<h2>Самые дешёвые варианты</h2>
+<div class=list id=top></div>
+<h2>Календарь: цена по дню вылета</h2>
+<p class=mut style="margin-top:-6px">Самая низкая цена туда-обратно при вылете в этот день. Нажми на день — покажу варианты.</p>
+<div class=months id=cal></div>
+<h2 id=dayh style="display:none"></h2><div class=list id=day></div>
+<p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом, плюс дорога до аэропорта вылета.
+Точный рейс и цену смотри по ссылке перед покупкой.</p>
 <script>
-const D=__DATA__, $=id=>document.getElementById(id);
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const fmt=d=>new Date(d+"T00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
-for(const [id,keys] of [["home",["home_out","home_back"]],["jp",["jp_in","jp_out"]]]){
-  [...new Set(D.flatMap(r=>keys.map(k=>r[k])))].sort().forEach(v=>$(id).add(new Option(v,v)));
-}
-let sortK="total",asc=true;
-if(new Set(D.map(r=>r.source)).size<2){$("srcgrp").style.display="none";if(!D.some(r=>r.source=="Aviasales"))$("avnote").style.display="none"}
-if(innerWidth>700)$("fd").open=true;
-$("sortm").onchange=e=>{sortK=e.target.value;asc=true;render()};
+const D=__DATA__.map(([home,out,days,price,extra])=>({home,out,days,price,extra,total:price+extra})), M=__META__;
+const $=id=>document.getElementById(id);
+const money=v=>new Intl.NumberFormat("ru-RU").format(Math.round(v))+(M.cur=="PLN"?" zł":" "+M.cur);
+const dt=s=>new Date(s+"T12:00");
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const addDays=(s,n)=>{const d=dt(s);d.setDate(d.getDate()+n);return iso(d)};
+const fd=s=>dt(s).toLocaleDateString("ru-RU",{weekday:"short",day:"numeric",month:"short"});
+const NAMES={WRO:"Вроцлав",WAW:"Варшава",BER:"Берлин",PRG:"Прага",VIE:"Вена",KTW:"Катовице",POZ:"Познань",KRK:"Краков",GDN:"Гданьск",BUD:"Будапешт",MUC:"Мюнхен",FRA:"Франкфурт"};
+const city=c=>NAMES[c]?`${NAMES[c]} (${c})`:c;
+const gUrl=o=>"https://www.google.com/travel/flights?q="+encodeURIComponent(
+  `Flights from ${o.home} to Japan on ${o.out} through ${addDays(o.out,o.days)}`)+"&curr="+M.cur+"&hl=ru";
+const dayWord=n=>n%10==1&&n%100!=11?"день":[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?"дня":"дней";
+
+$("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · в любой аэропорт Японии · обновлено ${M.updated}`;
+$("warn").innerHTML=(M.demo?["ДЕМО: цены выдуманные, только чтобы показать вид"]:[]).concat(M.warnings)
+  .map(w=>`<p class=warn>⚠ ${w.replace(/</g,"&lt;")}</p>`).join("")+(D.length?"":"<p class=warn>Ничего не найдено.</p>");
+$("len").add(new Option("любая",""));for(let n=M.min;n<=M.max;n++)$("len").add(new Option(`${n} ${dayWord(n)}`,n));
+$("home").add(new Option("откуда угодно",""));M.homes.forEach(h=>$("home").add(new Option(city(h),h)));
+
+let selDay=null;
+const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
+ <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
+  <div class=s>из ${city(o.home)}${o.extra?` · билеты ${money(o.price)} + дорога ${money(o.extra)}`:""}</div></div>
+ <a href="${gUrl(o)}" target=_blank rel=noopener>Google Flights ↗</a></div>`;
+
 function render(){
-  const g=$("sG").checked,a=$("sA").checked,d1=$("d1").value,d2=$("d2").value,n1=+$("n1").value||0,n2=+$("n2").value||999,
-    st=+$("st").value,h=$("home").value,j=$("jp").value,same=$("same").value,pm=+$("pmax").value||1e9;
-  let R=D.filter(r=>(r.source=="Google"?g:a)&&(!d1||r.out>=d1)&&(!d2||r.out<=d2)&&r.days>=n1&&r.days<=n2&&r.stops<=st
-    &&(!h||r.home_out==h||r.home_back==h)&&(!j||r.jp_in==j||r.jp_out==j)&&(!same||r.jp_in==r.jp_out)&&r.total<=pm);
-  R.sort((x,y)=>(x[sortK]>y[sortK]?1:x[sortK]<y[sortK]?-1:x.total-y.total)*(asc?1:-1));
-  $("cnt").textContent=`${R.length} of ${D.length} trips`+(R.length>300?" (showing 300)":"");
-  $("tb").innerHTML=R.slice(0,300).map(r=>`<tr>
-   <td class=p>${r.total}${r.extras?`<div class=mut style="font-weight:400;font-size:11px">${r.price}+${r.extras}</div>`:""}</td>
-   <td>${fmt(r.out)} → ${fmt(r.ret)}</td><td class=mut>${r.days} days</td>
-   <td>${esc(r.home_out)}→${esc(r.jp_in)}<br>${esc(r.jp_out)}→${esc(r.home_back)}</td><td class=mut>${r.stops?r.stops+" stop"+(r.stops>1?"s":""):"direct"}</td>
-   <td>${esc(r.source)}<br><span class=tag>${esc(r.kind)}</span></td>
-   <td class=f>${esc(r.out_desc)}<br>${esc(r.ret_desc)}</td>
-   <td class=b>${r.links.map(([l,u])=>`<a href="${esc(u)}" target=_blank rel=noopener>${esc(l)}</a>`).join("<br>")}</td></tr>`).join("");
-  document.querySelectorAll("th[data-k]").forEach(th=>th.classList.toggle("sorted",th.dataset.k==sortK));
+  const L=$("len").value,H=$("home").value;
+  const R=D.filter(o=>(!L||o.days==L)&&(!H||o.home==H)).sort((a,b)=>a.total-b.total);
+  // top list: best per (out day, length), so it's not the same dates repeated for every airport
+  const seen=new Set(),top=[];for(const o of R){const k=o.out+o.days;if(!seen.has(k)){seen.add(k);top.push(o)}if(top.length==10)break}
+  $("top").innerHTML=top.map(card).join("")||"<p class=mut>Нет вариантов под эти фильтры.</p>";
+  const best={};R.forEach(o=>{if(!best[o.out]||o.total<best[o.out].total)best[o.out]=o});
+  const vals=Object.values(best).map(o=>o.total),lo=Math.min(...vals),hi=Math.max(...vals);
+  let html="",d=dt(M.from);d.setDate(1);const end=dt(M.to);
+  while(d<=end){
+    const y=d.getFullYear(),m=d.getMonth(),first=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate();
+    let g=["пн","вт","ср","чт","пт","сб","вс"].map(x=>`<div class=h>${x}</div>`).join("")+"<div></div>".repeat(first);
+    for(let i=1;i<=n;i++){
+      const k=iso(new Date(y,m,i)),o=best[k];
+      if(!o){g+=`<div class="day e">${i}</div>`;continue}
+      const a=hi>lo?0.85-0.75*(o.total-lo)/(hi-lo):0.6;
+      g+=`<div class="day${selDay==k?" sel":""}" data-k=${k} style="background:rgba(var(--c),${a.toFixed(2)})">${i}<b>${(o.total/1000).toFixed(1)}k</b></div>`;
+    }
+    html+=`<div class=month><h3>${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}</h3><div class=grid>${g}</div></div>`;
+    d=new Date(y,m+1,1);
+  }
+  $("cal").innerHTML=html;
+  document.querySelectorAll(".day[data-k]").forEach(e=>e.onclick=()=>{selDay=e.dataset.k;render();$("dayh").scrollIntoView({behavior:"smooth"})});
+  if(selDay){
+    const X=R.filter(o=>o.out==selDay);
+    $("dayh").style.display="";$("dayh").textContent=`Вылет ${fd(selDay)}: ${X.length} вариантов`;
+    $("day").innerHTML=X.slice(0,40).map(card).join("");
+  }
 }
-document.querySelectorAll("th[data-k]").forEach(th=>th.onclick=()=>{asc=sortK==th.dataset.k?!asc:true;sortK=th.dataset.k;render()});
-document.querySelectorAll(".filters input,.filters select").forEach(e=>e.oninput=render);
-render();
+$("len").onchange=$("home").onchange=render;render();
 </script></body></html>"""

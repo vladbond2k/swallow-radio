@@ -1,51 +1,35 @@
-# Copy to config.toml (`jpfly --init`) and edit. Airport codes are IATA.
+# Search settings. Edit and rerun (locally: `jpfly`; online: Actions -> Search flights -> Run workflow).
 
-currency = "EUR"
-adults = 1
-max_stops = 2
+currency = "PLN"
 
 [trip]
-depart_from = "2027-02-20"   # earliest day you can leave home
-depart_to   = "2027-03-01"   # latest day you can leave home
-min_days = 14                # trip length: days between flying out and flying back
+depart_from = "2027-01-15"   # any day in this window is fine to leave
+depart_to   = "2027-04-30"   # (Google only knows prices ~10 months ahead)
+min_days = 14                # trip length in days
 max_days = 21
+max_stops = 2                # 0 = direct only, 1, 2, or -1 = any
 
-# Home airports. extra_cost = getting to/from that airport, each way, in `currency`
-# (rough train/bus prices from Wroclaw). Each extra airport adds ~80 Google searches.
-[[origins]]
+# Where you can fly from. extra_cost = getting to that airport and back (round trip, in `currency`).
+[[home]]
 code = "WRO"   # Wroclaw
 extra_cost = 0
 
-[[origins]]
+[[home]]
 code = "WAW"   # Warsaw, ~3.5h train
-extra_cost = 30
+extra_cost = 250
 
-[[origins]]
+[[home]]
 code = "BER"   # Berlin, ~4.5h bus
-extra_cost = 30
+extra_cost = 250
 
-[[origins]]
+[[home]]
 code = "PRG"   # Prague, ~4.5h bus
-extra_cost = 30
+extra_cost = 250
 
-[[origins]]
+[[home]]
 code = "VIE"   # Vienna, ~6h bus/train
-extra_cost = 40
+extra_cost = 350
 
-# Japan airports you're fine with (Tokyo HND/NRT, Osaka KIX, Nagoya NGO, Fukuoka FUK, Sapporo CTS, Okinawa OKA).
-# Flying into one and home from another is allowed. From Europe Tokyo/Osaka are almost always cheapest;
-# add NGO/FUK/CTS if you want, at the cost of more searches.
+# Any of these is fine to land in / fly back from.
 [japan]
-airports = ["HND", "NRT", "KIX"]
-
-[google]
-enabled = true
-workers = 3                  # parallel requests; keep low or Google starts showing captchas
-delay = 1.0                  # pause per request, seconds
-cache_hours = 12             # reuse results for this long (.cache/), so reruns are fast
-single_ticket_top = 20       # re-price the N cheapest combos as one round-trip / multi-city ticket
-
-[aviasales]
-# Free token: sign up at travelpayouts.com -> Profile -> API token.
-# Or set env TRAVELPAYOUTS_TOKEN. Empty = Aviasales skipped.
-token = ""
+airports = ["HND", "NRT", "KIX", "NGO", "FUK", "CTS", "OKA"]
