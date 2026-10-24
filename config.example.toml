@@ -25,5 +25,5 @@ airports = ["HND", "NRT", "KIX"]
 delay = 3                    # seconds between requests
 backoff = [60]               # if Google refuses: wait this long and retry; then stop until the next run
 cache_hours = 30             # prices older than this are dropped and asked again
-verify_top = 400             # how many of the cheapest calendar dates to re-check with the layover limit
+verify_top = 450             # how many of the cheapest calendar dates to re-check with the layover limit
 verify_per_run = 8           # re-checks per runner per run; the rest of Google's quota fills the calendar

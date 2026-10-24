@@ -22,6 +22,7 @@ from .config import Config
 
 CHUNK_DAYS = 61          # Google's calendar answers at most this many departure days per request
 COMPLETE = 0.8           # a calendar with at least this share of the window's days counts as complete
+MAX_TRIES = 3            # incomplete calendars are asked again up to this many times, then left as they are
 
 
 class Blocked(Exception):
@@ -283,6 +284,22 @@ class Searcher:
                 return None
         raise Blocked()
 
+    def verify_order(self) -> list[Option]:
+        """What to re-check first: the cheapest option of every departure day (so the calendar has no holes),
+        then everything else cheapest first."""
+        cands = self.candidates()
+        first, seen = [], set()
+        for o in cands:
+            if o.out not in seen:
+                seen.add(o.out)
+                first.append(o)
+        firsts = {id(o) for o in first}
+        return sorted(first, key=lambda o: o.price) + [o for o in cands if id(o) not in firsts]
+
+    def cal_settled(self, key) -> bool:
+        rec = self.store.read(self.cal_name(key))
+        return self.cal_complete(key) or (rec is not None and rec.get("tries", 1) >= MAX_TRIES)
+
     def candidates(self) -> list[Option]:
         """Calendar options, cheapest first, one per (home, dest, out, back)."""
         best = {}
@@ -300,7 +317,7 @@ class Searcher:
 
     def _verify_some(self, i: int, n: int, budget: int) -> int:
         """Re-check up to `budget` of the cheapest unverified calendar dates owned by this shard."""
-        todo = [o for o in self.candidates()[: self.cfg.verify_top] if not self.verified(o)]
+        todo = [o for o in self.verify_order()[: self.cfg.verify_top] if not self.verified(o)]
         todo = [o for idx, o in enumerate(todo) if idx % n == i][:budget]
         if todo:
             print(f"verify: {len(todo)} cheapest dates with the layover limit", file=sys.stderr)
@@ -319,7 +336,7 @@ class Searcher:
             used = self._verify_some(i, n, self.cfg.verify_per_run) if self.limited else 0
             # 2) Fill the calendar with whatever quota is left.
             mine = [k for idx, k in enumerate(self.cal_jobs) if idx % n == i]
-            todo = sorted((k for k in mine if not self.cal_complete(k)),
+            todo = sorted((k for k in mine if not self.cal_settled(k)),
                           key=lambda k: (self.store.read(self.cal_name(k)) or {}).get("asked", 0))
             print(f"calendar: {len(self.cal_jobs)} total, shard {i + 1}/{n} asking {len(todo)}", file=sys.stderr)
             for key in todo:
@@ -329,6 +346,7 @@ class Searcher:
                 rec = self.store.read(self.cal_name(key)) or {"asked": 0, "prices": {}}
                 now = time.time()
                 rec["asked"] = now
+                rec["tries"] = rec.get("tries", 0) + 1
                 rec["prices"].update({d: [p, now] for d, p in got.items()})
                 self.store.write(self.cal_name(key), rec)
                 print(f"  {key[0]}->{key[1]} {key[2]}d {key[3]}: {len(got)} dates", file=sys.stderr)
@@ -354,9 +372,11 @@ class Searcher:
             "cal_total": len(self.cal_jobs),
             "cal_complete": sum(self.cal_complete(k) for k in self.cal_jobs),
             "cal_with_data": sum(bool(self.cal_prices(k)) for k in self.cal_jobs),
-            # some routes never return a full calendar, so "asked at least once" is what counts as covered
-            "cal_asked": sum(bool(self.store.read(self.cal_name(k))) for k in self.cal_jobs),
-            "verified": sum(1 for o in cands[: self.cfg.verify_top] if self.verified(o)),
+            # some routes never return a full calendar: after MAX_TRIES they count as settled
+            "cal_settled": sum(self.cal_settled(k) for k in self.cal_jobs),
+            "days_with_price": len({o.out for o in cands}),
+            "days_verified": len({o.out for o in opts}),
+            "verified": sum(1 for o in self.verify_order()[: self.cfg.verify_top] if self.verified(o)),
             "verify_top": min(self.cfg.verify_top, len(cands)),
             "limited": self.limited,
         }

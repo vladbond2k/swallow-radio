@@ -38,9 +38,10 @@ def main():
     write_html(opts, cands, cfg, out / "index.html", warnings, a.demo)
     write_csv(opts, out / "trips.csv")
     # Read by the workflow to decide whether to chain another run right away.
-    done = st["cal_asked"] >= st["cal_total"] and (not st["limited"] or st["verified"] >= 0.9 * st["verify_top"])
+    done = st["cal_settled"] >= st["cal_total"] and (not st["limited"] or st["verified"] >= 0.9 * st["verify_top"])
     (out / "status.json").write_text(json.dumps({**st, "done": done}))
     console(opts, cfg)
+    print("status: " + json.dumps({k: v for k, v in st.items()}))
     print(f"\nopen {out / 'index.html'}")
     if not opts and a.shard == "1/1":   # parallel runners may legitimately end up with nothing
         sys.exit("nothing found; see errors above")
