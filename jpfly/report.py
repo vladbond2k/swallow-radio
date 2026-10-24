@@ -48,6 +48,7 @@ body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;ma
 h1{font-size:24px;margin:0 0 4px}h2{font-size:17px;margin:26px 0 10px}.mut{color:var(--mut)}.warn{color:var(--acc);margin:6px 0}
 .ctl{display:flex;flex-wrap:wrap;gap:10px 14px;margin:16px 0}
 .ctl label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+input[type=date]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
 select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
 .list{display:grid;gap:8px}
 .opt{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
@@ -70,6 +71,8 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}.lk{display:flex;fl
  <label>Длина поездки<select id=len></select></label>
  <label>Откуда<select id=home></select></label>
  <label>Куда<select id=jp></select></label>
+ <label>Вылет не раньше<input type=date id=d1></label>
+ <label>Вылет не позже<input type=date id=d2></label>
  <label id=stopsl>Пересадок туда<select id=stops><option value=9>любое</option><option value=1>не больше 1</option><option value=0>только прямые</option></select></label>
 </div>
 <h2 id=toph>Самые дешёвые варианты</h2>
@@ -125,15 +128,16 @@ const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=lk><a href="${gUrl(o)}" target=_blank rel=noopener>Google ↗</a><a href="${aUrl(o)}" target=_blank rel=noopener>Aviasales ↗</a><a href="${sUrl(o)}" target=_blank rel=noopener>Skyscanner ↗</a></div></div>`;
 
 function render(){
-  const L=$("len").value,H=$("home").value,J=$("jp").value,S=+$("stops").value;
+  const L=$("len").value,H=$("home").value,J=$("jp").value,S=+$("stops").value,D1=$("d1").value,D2=$("d2").value;
+  const inDates=o=>(!D1||o.out>=D1)&&(!D2||o.out<=D2);
   const D=D0.map(o=>pick(o,S)).filter(Boolean);
-  const R=D.filter(o=>(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J)).sort((a,b)=>a.total-b.total);
+  const R=D.filter(o=>inDates(o)&&(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J)).sort((a,b)=>a.total-b.total);
   // top list: best per (out day, length), so it's not the same dates repeated for every airport
   const seen=new Set(),top=[];for(const o of R){const k=o.out+o.days;if(!seen.has(k)){seen.add(k);top.push(o)}if(top.length==10)break}
   $("top").innerHTML=top.map(card).join("")||"<p class=mut>Нет вариантов под эти фильтры.</p>";
   const best={};R.forEach(o=>{if(!best[o.out]||o.total<best[o.out].total)best[o.out]=o});
   // days not verified yet: show the calendar price greyed out as a hint
-  const hint={};C.filter(o=>(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J))
+  const hint={};C.filter(o=>inDates(o)&&(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J))
     .forEach(o=>{if(!hint[o.out]||o.price<hint[o.out])hint[o.out]=o.price});
   const vals=Object.values(best).map(o=>o.total),lo=Math.min(...vals),hi=Math.max(...vals);
   let html="",d=dt(M.from);d.setDate(1);const end=dt(M.to);
@@ -158,5 +162,6 @@ function render(){
   }
 }
 if(!M.verified)$("stopsl").style.display="none";
-$("len").onchange=$("home").onchange=$("jp").onchange=$("stops").onchange=render;render();
+$("d1").min=$("d2").min=M.from;$("d1").max=$("d2").max=M.to;
+$("len").onchange=$("home").onchange=$("jp").onchange=$("stops").onchange=$("d1").onchange=$("d2").onchange=render;render();
 </script></body></html>"""
