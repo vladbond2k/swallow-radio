@@ -15,19 +15,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Google limits requests per IP, so 5 runners split the work, each through its own VPN server
-  # (secret named in `wg`; if that secret is missing the runner just uses its own GitHub IP).
+  # Google limits requests per IP, so 5 runners (5 IPs) split the work.
   search:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
+        # VPN off: Google refused Proton exits outright or their tunnels didn't pass traffic; runner IPs
+        # get ~15-20 requests each. To try a VPN again, put a secret name (e.g. WIREGUARD_CONF) in `wg`.
         include:
-          - { shard: 1, wg: WIREGUARD_CONF }
-          - { shard: 2, wg: WIREGUARD_CONF_1 }
-          # Google refused every request from the Proton servers in CONF_2..4, so these use the runner's IP.
-          # Put a secret name back here to try a new server.
+          - { shard: 1, wg: NONE }
+          - { shard: 2, wg: NONE }
           - { shard: 3, wg: NONE }
           - { shard: 4, wg: NONE }
           - { shard: 5, wg: NONE }

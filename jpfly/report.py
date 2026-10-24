@@ -23,16 +23,19 @@ def console(opts: list[Option], cfg: Config, n: int = 10):
         print(f"  {o.price:>7.0f}  {o.out:%a %d.%m} → {o.back:%a %d.%m} ({o.days}d) {o.home}⇄{o.dest}")
 
 
-def write_html(opts: list[Option], cfg: Config, path: Path, warnings: list[str], demo: bool):
-    data = [[o.home, o.dest, o.out.isoformat(), o.days, round(o.price)] for o in opts]
+def write_html(opts: list[Option], cands: list[Option], cfg: Config, path: Path, warnings: list[str], demo: bool):
+    data = [[o.home, o.dest, o.out.isoformat(), o.days, round(o.price), o.flight] for o in opts]
+    cal = [[o.home, o.dest, o.out.isoformat(), o.days, round(o.price)] for o in cands]
     meta = {
         "cur": cfg.currency, "homes": cfg.home, "japan": cfg.japan,
         "min": cfg.min_days, "max": cfg.max_days, "layover": cfg.max_layover_hours, "travel": cfg.max_travel_hours,
         "from": cfg.depart_from.isoformat(), "to": cfg.depart_to.isoformat(),
         "updated": datetime.now().strftime("%d.%m.%Y %H:%M"), "warnings": warnings, "demo": demo,
     }
+    meta["verified"] = bool(cfg.max_layover_hours or cfg.max_travel_hours)
     meta_json = json.dumps(meta, ensure_ascii=False).replace("</", "<\\/")
-    path.write_text(PAGE.replace("__DATA__", json.dumps(data)).replace("__META__", meta_json))
+    path.write_text(PAGE.replace("__DATA__", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
+                    .replace("__CAL__", json.dumps(cal)).replace("__META__", meta_json))
 
 
 PAGE = r"""<!doctype html><html lang=ru><head><meta charset=utf-8>
@@ -67,16 +70,18 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
  <label>Откуда<select id=home></select></label>
  <label>Куда<select id=jp></select></label>
 </div>
-<h2>Самые дешёвые варианты</h2>
+<h2 id=toph>Самые дешёвые варианты</h2>
 <div class=list id=top></div>
 <h2>Календарь: цена по дню вылета</h2>
-<p class=mut style="margin-top:-6px">Самая низкая цена туда-обратно при вылете в этот день. Нажми на день — покажу варианты.</p>
+<p class=mut style="margin-top:-6px">Самая низкая цена туда-обратно при вылете в этот день. Серым с «~» — цена из календаря Google
+без учёта лимита пересадок, ещё не проверенная. Нажми на день — покажу варианты.</p>
 <div class=months id=cal></div>
 <h2 id=dayh style="display:none"></h2><div class=list id=day></div>
 <p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом.
 Точный рейс и цену смотри по ссылке перед покупкой.</p>
 <script>
-const D=__DATA__.map(([home,dest,out,days,price])=>({home,dest,out,days,price,total:price})), M=__META__;
+const D=__DATA__.map(([home,dest,out,days,price,f])=>({home,dest,out,days,price,f,total:price})), M=__META__;
+const C=__CAL__.map(([home,dest,out,days,price])=>({home,dest,out,days,price}));
 const $=id=>document.getElementById(id);
 const money=v=>new Intl.NumberFormat("ru-RU").format(Math.round(v))+(M.cur=="PLN"?" zł":" "+M.cur);
 const dt=s=>new Date(s+"T12:00");
@@ -98,9 +103,12 @@ $("home").add(new Option("откуда угодно",""));M.homes.forEach(h=>$("
 $("jp").add(new Option("любой аэропорт Японии",""));M.japan.forEach(h=>$("jp").add(new Option(city(h),h)));
 
 let selDay=null;
+const hm=s=>s?s.slice(11,16):"";
+const flight=f=>!f||!f.route?"":`<div class=s>туда: ${(f.airlines||[]).join(", ")} · ${f.route.join("–")} · ${hm(f.dep)}→${hm(f.arr)}`+
+  ` · ${f.hours} ч в пути${f.layovers&&f.layovers.length?` · пересадк${f.layovers.length>1?"и":"а"} ${f.layovers.join(" + ")} ч`:" · прямой"}</div>`;
 const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
-  <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div></div>
+  <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div>${flight(o.f)}</div>
  <a href="${gUrl(o)}" target=_blank rel=noopener>Google Flights ↗</a></div>`;
 
 function render(){
@@ -110,6 +118,9 @@ function render(){
   const seen=new Set(),top=[];for(const o of R){const k=o.out+o.days;if(!seen.has(k)){seen.add(k);top.push(o)}if(top.length==10)break}
   $("top").innerHTML=top.map(card).join("")||"<p class=mut>Нет вариантов под эти фильтры.</p>";
   const best={};R.forEach(o=>{if(!best[o.out]||o.total<best[o.out].total)best[o.out]=o});
+  // days not verified yet: show the calendar price greyed out as a hint
+  const hint={};C.filter(o=>(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J))
+    .forEach(o=>{if(!hint[o.out]||o.price<hint[o.out])hint[o.out]=o.price});
   const vals=Object.values(best).map(o=>o.total),lo=Math.min(...vals),hi=Math.max(...vals);
   let html="",d=dt(M.from);d.setDate(1);const end=dt(M.to);
   while(d<=end){
@@ -117,7 +128,7 @@ function render(){
     let g=["пн","вт","ср","чт","пт","сб","вс"].map(x=>`<div class=h>${x}</div>`).join("")+"<div></div>".repeat(first);
     for(let i=1;i<=n;i++){
       const k=iso(new Date(y,m,i)),o=best[k];
-      if(!o){g+=`<div class="day e">${i}</div>`;continue}
+      if(!o){g+=hint[k]&&M.verified?`<div class="day e" title="цена без учёта лимита пересадок, ещё не проверена">${i}<b>~${(hint[k]/1000).toFixed(1)}k</b></div>`:`<div class="day e">${i}</div>`;continue}
       const a=hi>lo?0.85-0.75*(o.total-lo)/(hi-lo):0.6;
       g+=`<div class="day${selDay==k?" sel":""}" data-k=${k} style="background:rgba(var(--c),${a.toFixed(2)})">${i}<b>${(o.total/1000).toFixed(1)}k</b></div>`;
     }

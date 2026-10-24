@@ -21,18 +21,20 @@ def main():
         sys.exit(f"no {a.config}; copy config.example.toml to {a.config}")
     cfg = load(a.config)
     for d in a.merge:
-        Store(cfg, store_dir(".cache", a.demo)).absorb(Path(d))
+        Store(store_dir(".cache", a.demo), cfg.cache_hours).absorb(Path(d))
     i, n = map(int, a.shard.split("/"))
-    opts, st = search(cfg, demo=a.demo, shard=(i - 1, n), fetch_enabled=not a.no_fetch)
+    opts, cands, st = search(cfg, demo=a.demo, shard=(i - 1, n), fetch_enabled=not a.no_fetch)
 
     warnings = []
-    if st["complete"] < st["total"]:
-        warnings.append(f"Собрано {st['complete']} из {st['total']} календарей полностью, ещё {st['with_data'] - st['complete']} "
-                        f"частично. Google отдаёт данные порциями и ограничивает частоту запросов — "
-                        f"календарь дополняется каждые 30 минут.")
+    if st["cal_complete"] < st["cal_total"]:
+        warnings.append(f"Календарь цен: {st['cal_complete']} из {st['cal_total']} собрано полностью, "
+                        f"{st['cal_with_data'] - st['cal_complete']} частично. Дополняется каждые 30 минут.")
+    if st["limited"] and st["verified"] < st["verify_top"]:
+        warnings.append(f"С учётом лимита пересадок проверено {st['verified']} из {st['verify_top']} самых дешёвых "
+                        f"дат — список ниже растёт с каждым запуском.")
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    write_html(opts, cfg, out / "index.html", warnings, a.demo)
+    write_html(opts, cands, cfg, out / "index.html", warnings, a.demo)
     write_csv(opts, out / "trips.csv")
     console(opts, cfg)
     print(f"\nopen {out / 'index.html'}")

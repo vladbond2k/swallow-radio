@@ -20,6 +20,8 @@ class Config:
     delay: float = 3.0                       # pause between requests, seconds
     backoff: tuple = (60,)          # waits after Google refuses, then give up for this run
     cache_hours: float = 30                  # answers older than this are fetched again
+    verify_top: int = 300                    # check this many cheapest calendar dates against the layover limit
+    verify_per_run: int = 8                  # per runner and run (the rest of the quota fills the calendar)
 
 
 def load(path: str | Path) -> Config:
@@ -42,6 +44,8 @@ def load(path: str | Path) -> Config:
     cfg.delay = g.get("delay", cfg.delay)
     cfg.backoff = tuple(g.get("backoff", cfg.backoff))
     cfg.cache_hours = g.get("cache_hours", cfg.cache_hours)
+    cfg.verify_top = g.get("verify_top", cfg.verify_top)
+    cfg.verify_per_run = g.get("verify_per_run", cfg.verify_per_run)
     if cfg.depart_to < cfg.depart_from or cfg.max_days < cfg.min_days:
         raise SystemExit("config: date range or trip length range is reversed")
     return cfg

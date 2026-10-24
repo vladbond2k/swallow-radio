@@ -9,7 +9,7 @@ depart_to   = "2027-04-30"   # (Google only knows prices ~10 months ahead)
 min_days = 14                # trip length in days
 max_days = 21
 max_stops = 2                # 0 = direct only, 1, 2, or -1 = any
-max_layover_hours = 6        # longest connection you accept; 0 = no limit
+max_layover_hours = 6        # longest connection you accept; 0 = no limit (cheapest dates get re-checked with it)
 max_travel_hours = 0         # longest one-way journey incl. connections; 0 = no limit (e.g. 20)
 
 # Airports you can fly from (all reachable by car from Wroclaw). Prices are tickets only.
@@ -25,3 +25,5 @@ airports = ["HND", "NRT", "KIX"]
 delay = 3                    # seconds between requests
 backoff = [60]               # if Google refuses: wait this long and retry; then stop until the next run
 cache_hours = 30             # prices older than this are dropped and asked again
+verify_top = 300             # how many of the cheapest calendar dates to re-check with the layover limit
+verify_per_run = 8           # re-checks per runner per run; the rest of Google's quota fills the calendar
