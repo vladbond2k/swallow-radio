@@ -53,7 +53,7 @@ select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(
 .opt{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
 .opt .p{font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;min-width:110px}
 .opt .d{flex:1}.opt .s{font-size:13px;color:var(--mut)}
-a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
+a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}.lk{display:flex;flex-direction:column;gap:4px;align-items:flex-end}
 .months{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
 .month h3{font-size:14px;margin:0 0 6px;text-transform:capitalize}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
@@ -61,7 +61,8 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
 .day{border-radius:6px;padding:4px 2px;text-align:center;font-size:11px;min-height:42px;border:1px solid transparent;cursor:pointer;color:var(--fg)}
 .day b{display:block;font-size:13px;font-weight:600}.day.e{cursor:default;color:var(--mut);opacity:.5}
 .day.sel{border-color:var(--fg)}.day:not(.e):hover{border-color:var(--acc)}
-@media (max-width:520px){.opt{flex-wrap:wrap;gap:4px 12px}.opt .p{min-width:0}.opt .d{flex-basis:100%;order:3}}
+@media (max-width:520px){.opt{flex-wrap:wrap;gap:4px 12px}.opt .p{min-width:0}.opt .d{flex-basis:100%;order:3}
+ .lk{flex-direction:row;gap:14px;order:4;flex-basis:100%;margin-top:4px}}
 </style></head><body>
 <h1>Дешёвые поездки в Японию</h1>
 <div class=mut id=sub></div><div id=warn></div>
@@ -98,6 +99,10 @@ const NAMES={HND:"Токио Ханэда",NRT:"Токио Нарита",KIX:"О
 const city=c=>NAMES[c]?`${NAMES[c]} (${c})`:c;
 const gUrl=o=>"https://www.google.com/travel/flights?q="+encodeURIComponent(
   `Flights from ${o.home} to ${o.dest} on ${o.out} through ${addDays(o.out,o.days)}`)+"&curr="+M.cur+"&hl=ru";
+// same dates on aggregators that also search small agencies and carriers Google doesn't show
+const dm=s=>s.slice(8,10)+s.slice(5,7), ymd=s=>s.slice(2,4)+s.slice(5,7)+s.slice(8,10);
+const aUrl=o=>`https://www.aviasales.com/search/${o.home}${dm(o.out)}${o.dest}${dm(addDays(o.out,o.days))}1`;
+const sUrl=o=>`https://www.skyscanner.pl/transport/flights/${o.home.toLowerCase()}/${o.dest.toLowerCase()}/${ymd(o.out)}/${ymd(addDays(o.out,o.days))}/?adultsv2=1&currency=PLN`;
 const dayWord=n=>n%10==1&&n%100!=11?"день":[2,3,4].includes(n%10)&&![12,13,14].includes(n%100)?"дня":"дней";
 
 $("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · ${M.homes.length} аэропортов вылета ⇄ ${M.japan.map(c=>NAMES[c]||c).join(", ")} ${M.layover?` · пересадки до ${M.layover} ч`:""}${M.travel?` · в пути до ${M.travel} ч`:""} · обновлено ${M.updated}`;
@@ -114,7 +119,7 @@ const flight=f=>!f||!f.route?"":`<div class=s>туда: ${(f.airlines||[]).join(
 const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
   <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div>${flight(o.fl)}</div>
- <a href="${gUrl(o)}" target=_blank rel=noopener>Google Flights ↗</a></div>`;
+ <div class=lk><a href="${gUrl(o)}" target=_blank rel=noopener>Google ↗</a><a href="${aUrl(o)}" target=_blank rel=noopener>Aviasales ↗</a><a href="${sUrl(o)}" target=_blank rel=noopener>Skyscanner ↗</a></div></div>`;
 
 function render(){
   const L=$("len").value,H=$("home").value,J=$("jp").value,S=+$("stops").value;
