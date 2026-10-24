@@ -1,46 +1,37 @@
-# Copy to config.toml and edit.  All airport codes are IATA.
+# Copy to config.toml (`jpfly --init`) and edit. Airport codes are IATA.
 
 currency = "EUR"
 adults = 1
-max_stops = 2            # max stops inside one ticket (Google's own connections)
-workers = 3              # parallel requests to Google Flights; keep it low or you'll get blocked
-delay = 1.0              # seconds each worker sleeps between requests
-cache_hours = 12         # re-use fetched results for this long (.cache/)
+max_stops = 2
 
 [trip]
 depart_from = "2027-02-20"   # earliest day you can leave home
 depart_to   = "2027-03-01"   # latest day you can leave home
-min_days = 14                # trip length = days between leaving home and leaving Japan
+min_days = 14                # trip length: days between flying out and flying back
 max_days = 21
-open_jaw = true              # allow e.g. fly into Tokyo, fly home from Osaka
-mix_home = true              # allow leaving from one home airport and returning to another
 
-# Home airports. extra_cost = ground transport to/from that airport (each way, in `currency`).
+# Home airports. extra_cost = getting to/from that airport, each way, in `currency`.
 [[origins]]
 code = "WAW"
 extra_cost = 0
 
 [[origins]]
-code = "WMI"
-extra_cost = 5
-
-[[origins]]
 code = "BER"
 extra_cost = 40
 
-# Where in Japan you're fine landing / leaving from.
+# Japan airports you're fine with (Tokyo HND/NRT, Osaka KIX, Nagoya NGO, Fukuoka FUK, Sapporo CTS, Okinawa OKA).
+# Flying into one and home from another is allowed.
 [japan]
 airports = ["HND", "NRT", "KIX", "NGO", "FUK", "CTS"]
 
-# Self-transfer: two separate tickets glued at a hub (e.g. cheap flight to Istanbul,
-# then a separate ticket Istanbul -> Tokyo). Finds deals Google doesn't combine itself.
-# Each hub adds a lot of requests; trim the list or run with --no-hubs for a quick pass.
-[hubs]
+[google]
 enabled = true
-airports = ["IST", "DXB", "AUH", "DOH", "PEK", "PVG", "ICN", "HKG", "TPE", "BKK"]
-min_connection_hours = 3     # separate tickets: no protection if delayed, keep a buffer
-max_connection_hours = 24
-japan_airports = ["HND", "NRT", "KIX"]   # Japan airports to check from hubs (subset to save requests)
+workers = 3                  # parallel requests; keep low or Google starts showing captchas
+delay = 1.0                  # pause per request, seconds
+cache_hours = 12             # reuse results for this long (.cache/), so reruns are fast
+single_ticket_top = 20       # re-price the N cheapest combos as one round-trip / multi-city ticket
 
-[check]
-single_ticket_top = 30       # re-price the N best combos as one round-trip / multi-city ticket
+[aviasales]
+# Free token: sign up at travelpayouts.com -> Profile -> API token.
+# Or set env TRAVELPAYOUTS_TOKEN. Empty = Aviasales skipped.
+token = ""
