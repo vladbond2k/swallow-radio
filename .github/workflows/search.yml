@@ -3,7 +3,7 @@ name: Search flights
 on:
   workflow_dispatch:          # "Run workflow" button in the Actions tab
   schedule:
-    - cron: "7,37 * * * *"    # every 30 min; each run continues where Google stopped the previous one
+    - cron: "*/15 * * * *"    # every 15 min while collecting; each run continues where Google stopped the last
 
 permissions:
   contents: read
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Google limits requests per IP, so 5 runners (5 IPs) split the work.
+  # Google limits requests per IP, so 10 runners (10 IPs) split the work.
   search:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -24,12 +24,8 @@ jobs:
       matrix:
         # VPN off: Google refused Proton exits outright or their tunnels didn't pass traffic; runner IPs
         # get ~15-20 requests each. To try a VPN again, put a secret name (e.g. WIREGUARD_CONF) in `wg`.
-        include:
-          - { shard: 1, wg: NONE }
-          - { shard: 2, wg: NONE }
-          - { shard: 3, wg: NONE }
-          - { shard: 4, wg: NONE }
-          - { shard: 5, wg: NONE }
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        wg: [NONE]
     env:
       WG_CONF: ${{ secrets[matrix.wg] }}
     steps:
@@ -52,7 +48,7 @@ jobs:
         run: |
           # if the VPN came up half-broken, drop it and use the runner's own connection
           curl -s --max-time 10 -o /dev/null https://www.google.com || sudo wg-quick down wg0 || true
-          jpfly -c config.toml --shard ${{ matrix.shard }}/5 -o /tmp/unused
+          jpfly -c config.toml --shard ${{ matrix.shard }}/10 -o /tmp/unused
       - name: Disconnect VPN
         if: always() && env.WG_CONF != ''
         run: sudo wg-quick down wg0 || true

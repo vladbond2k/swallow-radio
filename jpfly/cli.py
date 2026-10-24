@@ -28,7 +28,7 @@ def main():
     warnings = []
     if st["cal_complete"] < st["cal_total"]:
         warnings.append(f"Календарь цен: {st['cal_complete']} из {st['cal_total']} собрано полностью, "
-                        f"{st['cal_with_data'] - st['cal_complete']} частично. Дополняется каждые 30 минут.")
+                        f"{st['cal_with_data'] - st['cal_complete']} частично. Дополняется каждые 15 минут.")
     if st["limited"] and st["verified"] < st["verify_top"]:
         warnings.append(f"С учётом лимита пересадок проверено {st['verified']} из {st['verify_top']} самых дешёвых "
                         f"дат — список ниже растёт с каждым запуском.")
