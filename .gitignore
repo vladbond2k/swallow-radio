@@ -3,5 +3,4 @@ __pycache__/
 .venv/
 .cache/
 out/
-config.toml
 *.egg-info/

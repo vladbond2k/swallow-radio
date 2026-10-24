@@ -7,13 +7,24 @@
 
 Результат: `out/report.html` (открыть в браузере) и `out/trips.csv`.
 
-## Запуск
+## Онлайн (GitHub Actions + Pages)
+
+Отчёт: **https://vladbond2k.github.io/swallow-radio/** — обновляется каждый день и по кнопке.
+
+Настройка один раз:
+1. Settings → Pages → Source: **GitHub Actions**.
+2. Settings → Secrets and variables → Actions → New repository secret: `TRAVELPAYOUTS_TOKEN` (токен Aviasales, необязательно).
+3. Actions → Search flights → Run workflow. Через ~10 минут отчёт по ссылке выше.
+
+Параметры поиска — в `config.toml` (можно править прямо на GitHub).
+
+## Запуск локально
 
 ```bash
-git clone -b japan-flights https://github.com/vladbond2k/swallow-radio && cd swallow-radio
+git clone https://github.com/vladbond2k/swallow-radio && cd swallow-radio
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
-jpfly --init            # создаст config.toml: впиши свои аэропорты, даты, длину поездки
+# при желании поправь config.toml: аэропорты, даты, длина поездки
 jpfly                   # ~5–15 минут на первый прогон, повторные быстрые (кеш)
 open out/report.html    # Windows: start out\report.html
 ```

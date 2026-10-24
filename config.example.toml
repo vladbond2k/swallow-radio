@@ -10,19 +10,33 @@ depart_to   = "2027-03-01"   # latest day you can leave home
 min_days = 14                # trip length: days between flying out and flying back
 max_days = 21
 
-# Home airports. extra_cost = getting to/from that airport, each way, in `currency`.
+# Home airports. extra_cost = getting to/from that airport, each way, in `currency`
+# (rough train/bus prices from Wroclaw). Each extra airport adds ~80 Google searches.
 [[origins]]
-code = "WAW"
+code = "WRO"   # Wroclaw
 extra_cost = 0
 
 [[origins]]
-code = "BER"
+code = "WAW"   # Warsaw, ~3.5h train
+extra_cost = 30
+
+[[origins]]
+code = "BER"   # Berlin, ~4.5h bus
+extra_cost = 30
+
+[[origins]]
+code = "PRG"   # Prague, ~4.5h bus
+extra_cost = 30
+
+[[origins]]
+code = "VIE"   # Vienna, ~6h bus/train
 extra_cost = 40
 
 # Japan airports you're fine with (Tokyo HND/NRT, Osaka KIX, Nagoya NGO, Fukuoka FUK, Sapporo CTS, Okinawa OKA).
-# Flying into one and home from another is allowed.
+# Flying into one and home from another is allowed. From Europe Tokyo/Osaka are almost always cheapest;
+# add NGO/FUK/CTS if you want, at the cost of more searches.
 [japan]
-airports = ["HND", "NRT", "KIX", "NGO", "FUK", "CTS"]
+airports = ["HND", "NRT", "KIX"]
 
 [google]
 enabled = true
