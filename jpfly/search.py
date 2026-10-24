@@ -80,8 +80,34 @@ def _calendar(cfg: Config, home: str, dest: str, days: int, start: date, end: da
     return {r.date[0].date().isoformat(): r.price for r in res}
 
 
+def _flight_detail(f) -> dict:
+    return {
+        "price": f.price,
+        "airlines": list(dict.fromkeys(leg.airline.name.replace("_", " ").title() for leg in f.legs)),
+        "route": [f.legs[0].departure_airport.name] + [leg.arrival_airport.name for leg in f.legs],
+        "dep": f.legs[0].departure_datetime.isoformat(timespec="minutes"),
+        "arr": f.legs[-1].arrival_datetime.isoformat(timespec="minutes"),
+        "hours": round(f.duration / 60, 1),
+        "layovers": [round(lo.duration / 60, 1) for lo in f.layovers or []],
+    }
+
+
+def _within_limits(cfg: Config, f) -> bool:
+    """Google is asked to apply the limits, but its answer is double-checked here."""
+    if cfg.max_layover_hours and any(lo.duration > cfg.max_layover_hours * 60 for lo in f.layovers or []):
+        return False
+    if cfg.max_travel_hours and f.duration > cfg.max_travel_hours * 60:
+        return False
+    return bool(f.price)
+
+
 def _verify(cfg: Config, home: str, dest: str, out: date, back: date) -> dict:
-    """Real round-trip search with the layover/travel limits; cheapest outbound row (its price is the round trip)."""
+    """Real round-trip search under the layover/travel limits, both directions.
+
+    Request 1 lists outbound flights (each priced as the cheapest full round trip with it); the cheapest
+    outbound per stop count is kept. Request 2 lists the return flights for the overall cheapest outbound,
+    so the shown price is a complete itinerary whose return also respects the limits.
+    """
     from fli.core.builders import build_flight_segments
     from fli.models import Airport, FlightSearchFilters, LayoverRestrictions, PassengerInfo, SeatType
     from fli.search import SearchFlights
@@ -100,31 +126,42 @@ def _verify(cfg: Config, home: str, dest: str, out: date, back: date) -> dict:
     )
     s = SearchFlights()
     url = with_locale_params(s.BASE_URL, cfg.currency, "en", cfg.market)
-    resp = s.client.post(url=url, data=f"f.req={filters.encode()}", impersonate="chrome", allow_redirects=True)
-    inner = parse_first_wrb_payload(resp.text)
-    if inner is None:
-        raise Blocked()
-    rows = [r for i in (2, 3) if isinstance(inner[i], list) for r in inner[i][0]]
-    # Cheapest outbound per number of stops, so the page can filter by stops without asking again.
+
+    def shop() -> list:
+        resp = s.client.post(url=url, data=f"f.req={filters.encode()}", impersonate="chrome", allow_redirects=True)
+        inner = parse_first_wrb_payload(resp.text)
+        if inner is None:
+            raise Blocked()
+        out_rows = []
+        for row in (r for i in (2, 3) if isinstance(inner[i], list) for r in inner[i][0]):
+            try:
+                f = parse_flight_row(row)
+            except Exception:
+                continue
+            if _within_limits(cfg, f):
+                out_rows.append(f)
+        return out_rows
+
     by_stops: dict[int, object] = {}
-    for row in rows:
-        try:
-            f = parse_flight_row(row)
-        except Exception:
-            continue
-        if f.price and (f.stops not in by_stops or f.price < by_stops[f.stops].price):
+    for f in shop():
+        if f.stops not in by_stops or f.price < by_stops[f.stops].price:
             by_stops[f.stops] = f
     if not by_stops:
         return {"price": None}
-    detail = {str(n): {
-        "price": f.price,
-        "airlines": list(dict.fromkeys(leg.airline.name.replace("_", " ").title() for leg in f.legs)),
-        "route": [f.legs[0].departure_airport.name] + [leg.arrival_airport.name for leg in f.legs],
-        "dep": f.legs[0].departure_datetime.isoformat(timespec="minutes"),
-        "arr": f.legs[-1].arrival_datetime.isoformat(timespec="minutes"),
-        "hours": round(f.duration / 60, 1),
-        "layovers": [round(lo.duration / 60, 1) for lo in f.layovers or []],
-    } for n, f in by_stops.items()}
+    detail = {str(n): _flight_detail(f) for n, f in by_stops.items()}
+
+    # Return leg for the cheapest outbound: confirms the full itinerary and gives its exact price.
+    best_n = min(by_stops, key=lambda n: by_stops[n].price)
+    filters.flight_segments[0].selected_flight = by_stops[best_n]
+    returns = shop()
+    if returns:
+        r = min(returns, key=lambda f: f.price)
+        detail[str(best_n)]["back"] = _flight_detail(r)
+        detail[str(best_n)]["price"] = r.price
+    else:   # no return within the limits for this outbound: drop it
+        del detail[str(best_n)]
+        if not detail:
+            return {"price": None}
     return {"price": min(d["price"] for d in detail.values()), "by_stops": detail}
 
 
@@ -147,6 +184,9 @@ def _verify_demo(cfg: Config, home: str, dest: str, out: date, back: date) -> di
                           "airlines": [rnd.choice(["Lot", "Turkish Airlines", "Finnair"])],
                           "route": [home, *rnd.sample(["IST", "HEL", "DOH", "WAW"], n), dest], "dep": f"{out}T10:05",
                           "arr": f"{out + timedelta(days=1)}T08:40", "hours": round(13 + sum(lays), 1), "layovers": lays}
+    best = min(detail, key=lambda n: detail[n]["price"])
+    detail[best]["back"] = {**detail[best], "route": detail[best]["route"][::-1], "dep": f"{back}T12:30",
+                            "arr": f"{back + timedelta(days=1)}T07:10"}
     return {"price": min(d["price"] for d in detail.values()), "by_stops": detail}
 
 
@@ -207,7 +247,7 @@ class Searcher:
 
     def ver_name(self, home, dest, out, back) -> str:
         c = self.cfg
-        return f"v-{c.currency}-s{c.max_stops}-l{c.max_layover_hours:g}-t{c.max_travel_hours:g}-{home}-{dest}-{out}-{back}"
+        return f"v2-{c.currency}-s{c.max_stops}-l{c.max_layover_hours:g}-t{c.max_travel_hours:g}-{home}-{dest}-{out}-{back}"
 
     def cal_prices(self, key) -> dict:
         rec = self.store.read(self.cal_name(key)) or {"prices": {}}

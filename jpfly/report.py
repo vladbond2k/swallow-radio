@@ -80,7 +80,8 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}.lk{display:flex;fl
 <div class=months id=cal></div>
 <h2 id=dayh style="display:none"></h2><div class=list id=day></div>
 <p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом.
-Точный рейс и цену смотри по ссылке перед покупкой.</p>
+Точный рейс и цену смотри по ссылке перед покупкой. В Google по кнопке открывается поиск без фильтра —
+поставь там «Connecting airports → Layover duration», иначе сверху будут варианты с длинной пересадкой.</p>
 <script>
 const D0=__DATA__.map(([home,dest,out,days,price,f])=>({home,dest,out,days,price,f,total:price})), M=__META__;
 // pick, per verified option, the cheapest outbound within the chosen number of stops
@@ -114,8 +115,10 @@ $("jp").add(new Option("любой аэропорт Японии",""));M.japan.f
 
 let selDay=null;
 const hm=s=>s?s.slice(11,16):"";
-const flight=f=>!f||!f.route?"":`<div class=s>туда: ${(f.airlines||[]).join(", ")} · ${f.route.join("–")} · ${hm(f.dep)}→${hm(f.arr)}`+
+const leg=(label,f)=>`<div class=s>${label}: ${(f.airlines||[]).join(", ")} · ${f.route.join("–")} · ${hm(f.dep)}→${hm(f.arr)}`+
   ` · ${f.hours} ч в пути${f.layovers&&f.layovers.length?` · пересадк${f.layovers.length>1?"и":"а"} ${f.layovers.join(" + ")} ч`:" · прямой"}</div>`;
+const flight=f=>!f||!f.route?"":leg("туда",f)+(f.back?leg("обратно",f.back):
+  `<div class=s>обратно: Google подбирает в пределах лимита, рейс не проверен</div>`);
 const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
   <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div>${flight(o.fl)}</div>
