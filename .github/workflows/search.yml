@@ -26,9 +26,11 @@ jobs:
         include:
           - { shard: 1, wg: WIREGUARD_CONF }
           - { shard: 2, wg: WIREGUARD_CONF_1 }
-          - { shard: 3, wg: WIREGUARD_CONF_2 }
-          - { shard: 4, wg: WIREGUARD_CONF_3 }
-          - { shard: 5, wg: WIREGUARD_CONF_4 }
+          # Google refused every request from the Proton servers in CONF_2..4, so these use the runner's IP.
+          # Put a secret name back here to try a new server.
+          - { shard: 3, wg: NONE }
+          - { shard: 4, wg: NONE }
+          - { shard: 5, wg: NONE }
     env:
       WG_CONF: ${{ secrets[matrix.wg] }}
     steps:
