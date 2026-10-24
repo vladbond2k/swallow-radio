@@ -36,7 +36,7 @@ class Option:
     back: date
     price: float                      # round trip, 1 adult
     verified: bool = False            # True: real search with the layover limit; False: calendar price
-    flight: dict = field(default_factory=dict)   # outbound details for verified options
+    flight: dict = field(default_factory=dict)   # verified: {"<stops>": cheapest outbound with that many stops}
 
     @property
     def days(self) -> int:
@@ -105,25 +105,27 @@ def _verify(cfg: Config, home: str, dest: str, out: date, back: date) -> dict:
     if inner is None:
         raise Blocked()
     rows = [r for i in (2, 3) if isinstance(inner[i], list) for r in inner[i][0]]
-    best = None
+    # Cheapest outbound per number of stops, so the page can filter by stops without asking again.
+    by_stops: dict[int, object] = {}
     for row in rows:
         try:
             f = parse_flight_row(row)
         except Exception:
             continue
-        if f.price and (best is None or f.price < best.price):
-            best = f
-    if best is None:
+        if f.price and (f.stops not in by_stops or f.price < by_stops[f.stops].price):
+            by_stops[f.stops] = f
+    if not by_stops:
         return {"price": None}
-    return {
-        "price": best.price,
-        "airlines": list(dict.fromkeys(leg.airline.name.replace("_", " ").title() for leg in best.legs)),
-        "route": [best.legs[0].departure_airport.name] + [leg.arrival_airport.name for leg in best.legs],
-        "dep": best.legs[0].departure_datetime.isoformat(timespec="minutes"),
-        "arr": best.legs[-1].arrival_datetime.isoformat(timespec="minutes"),
-        "hours": round(best.duration / 60, 1),
-        "layovers": [round(lo.duration / 60, 1) for lo in best.layovers or []],
-    }
+    detail = {str(n): {
+        "price": f.price,
+        "airlines": list(dict.fromkeys(leg.airline.name.replace("_", " ").title() for leg in f.legs)),
+        "route": [f.legs[0].departure_airport.name] + [leg.arrival_airport.name for leg in f.legs],
+        "dep": f.legs[0].departure_datetime.isoformat(timespec="minutes"),
+        "arr": f.legs[-1].arrival_datetime.isoformat(timespec="minutes"),
+        "hours": round(f.duration / 60, 1),
+        "layovers": [round(lo.duration / 60, 1) for lo in f.layovers or []],
+    } for n, f in by_stops.items()}
+    return {"price": min(d["price"] for d in detail.values()), "by_stops": detail}
 
 
 def _calendar_demo(cfg: Config, home: str, dest: str, days: int, start: date, end: date) -> dict[str, float]:
@@ -138,10 +140,14 @@ def _verify_demo(cfg: Config, home: str, dest: str, out: date, back: date) -> di
     rnd = random.Random(f"{home}{dest}{out}{back}")
     if rnd.random() < 0.2:
         return {"price": None}
-    lay = round(rnd.uniform(1, cfg.max_layover_hours or 8), 1)
-    return {"price": 2700 + rnd.randint(0, 1500), "airlines": [rnd.choice(["Lot", "Turkish Airlines", "Finnair"])],
-            "route": [home, rnd.choice(["IST", "HEL", "DOH"]), dest], "dep": f"{out}T10:05",
-            "arr": f"{out + timedelta(days=1)}T08:40", "hours": round(14 + lay, 1), "layovers": [lay]}
+    detail = {}
+    for n in range(rnd.randint(0, 1), 3):
+        lays = [round(rnd.uniform(1, cfg.max_layover_hours or 8), 1) for _ in range(n)]
+        detail[str(n)] = {"price": 2700 + rnd.randint(0, 1500) + 400 * (2 - n),
+                          "airlines": [rnd.choice(["Lot", "Turkish Airlines", "Finnair"])],
+                          "route": [home, *rnd.sample(["IST", "HEL", "DOH", "WAW"], n), dest], "dep": f"{out}T10:05",
+                          "arr": f"{out + timedelta(days=1)}T08:40", "hours": round(13 + sum(lays), 1), "layovers": lays}
+    return {"price": min(d["price"] for d in detail.values()), "by_stops": detail}
 
 
 class Store:
@@ -301,9 +307,8 @@ class Searcher:
             for o in cands:
                 v = self.verified(o)
                 if v and v.get("price"):
-                    opts.append(Option(o.home, o.dest, o.out, o.back, v["price"], True,
-                                       {k: v[k] for k in ("airlines", "route", "dep", "arr", "hours", "layovers")
-                                        if k in v}))
+                    by_stops = v.get("by_stops") or {str(len(v.get("layovers", []))): v}   # older records: one flight
+                    opts.append(Option(o.home, o.dest, o.out, o.back, v["price"], True, by_stops))
             opts.sort(key=lambda o: o.price)
         st = {
             "cal_total": len(self.cal_jobs),

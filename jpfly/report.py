@@ -69,6 +69,7 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
  <label>Длина поездки<select id=len></select></label>
  <label>Откуда<select id=home></select></label>
  <label>Куда<select id=jp></select></label>
+ <label id=stopsl>Пересадок туда<select id=stops><option value=9>любое</option><option value=1>не больше 1</option><option value=0>только прямые</option></select></label>
 </div>
 <h2 id=toph>Самые дешёвые варианты</h2>
 <div class=list id=top></div>
@@ -80,7 +81,11 @@ a{color:var(--acc)}.opt a{white-space:nowrap;font-weight:600}
 <p class=mut style="margin-top:28px">Цены — минимальные из календаря Google Flights, туда-обратно, 1 взрослый, эконом.
 Точный рейс и цену смотри по ссылке перед покупкой.</p>
 <script>
-const D=__DATA__.map(([home,dest,out,days,price,f])=>({home,dest,out,days,price,f,total:price})), M=__META__;
+const D0=__DATA__.map(([home,dest,out,days,price,f])=>({home,dest,out,days,price,f,total:price})), M=__META__;
+// pick, per verified option, the cheapest outbound within the chosen number of stops
+const pick=(o,maxStops)=>{if(!M.verified)return o;let b=null;
+  for(const [n,d] of Object.entries(o.f||{}))if(+n<=maxStops&&(!b||d.price<b.price))b=d;
+  return b?{...o,price:b.price,total:b.price,fl:b}:null};
 const C=__CAL__.map(([home,dest,out,days,price])=>({home,dest,out,days,price}));
 const $=id=>document.getElementById(id);
 const money=v=>new Intl.NumberFormat("ru-RU").format(Math.round(v))+(M.cur=="PLN"?" zł":" "+M.cur);
@@ -97,7 +102,7 @@ const dayWord=n=>n%10==1&&n%100!=11?"день":[2,3,4].includes(n%10)&&![12,13,1
 
 $("sub").textContent=`Вылет ${fd(M.from)} – ${fd(M.to)} · ${M.min}–${M.max} дней · ${M.homes.length} аэропортов вылета ⇄ ${M.japan.map(c=>NAMES[c]||c).join(", ")} ${M.layover?` · пересадки до ${M.layover} ч`:""}${M.travel?` · в пути до ${M.travel} ч`:""} · обновлено ${M.updated}`;
 $("warn").innerHTML=(M.demo?["ДЕМО: цены выдуманные, только чтобы показать вид"]:[]).concat(M.warnings)
-  .map(w=>`<p class=warn>⚠ ${w.replace(/</g,"&lt;")}</p>`).join("")+(D.length?"":"<p class=warn>Ничего не найдено.</p>");
+  .map(w=>`<p class=warn>⚠ ${w.replace(/</g,"&lt;")}</p>`).join("")+(D0.length?"":"<p class=warn>Ничего не найдено.</p>");
 $("len").add(new Option("любая",""));for(let n=M.min;n<=M.max;n++)$("len").add(new Option(`${n} ${dayWord(n)}`,n));
 $("home").add(new Option("откуда угодно",""));M.homes.forEach(h=>$("home").add(new Option(city(h),h)));
 $("jp").add(new Option("любой аэропорт Японии",""));M.japan.forEach(h=>$("jp").add(new Option(city(h),h)));
@@ -108,11 +113,12 @@ const flight=f=>!f||!f.route?"":`<div class=s>туда: ${(f.airlines||[]).join(
   ` · ${f.hours} ч в пути${f.layovers&&f.layovers.length?` · пересадк${f.layovers.length>1?"и":"а"} ${f.layovers.join(" + ")} ч`:" · прямой"}</div>`;
 const card=o=>`<div class=opt><div class=p>${money(o.total)}</div>
  <div class=d><b>${fd(o.out)} → ${fd(addDays(o.out,o.days))}</b> · ${o.days} ${dayWord(o.days)}
-  <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div>${flight(o.f)}</div>
+  <div class=s>${city(o.home)} ⇄ ${city(o.dest)}</div>${flight(o.fl)}</div>
  <a href="${gUrl(o)}" target=_blank rel=noopener>Google Flights ↗</a></div>`;
 
 function render(){
-  const L=$("len").value,H=$("home").value,J=$("jp").value;
+  const L=$("len").value,H=$("home").value,J=$("jp").value,S=+$("stops").value;
+  const D=D0.map(o=>pick(o,S)).filter(Boolean);
   const R=D.filter(o=>(!L||o.days==L)&&(!H||o.home==H)&&(!J||o.dest==J)).sort((a,b)=>a.total-b.total);
   // top list: best per (out day, length), so it's not the same dates repeated for every airport
   const seen=new Set(),top=[];for(const o of R){const k=o.out+o.days;if(!seen.has(k)){seen.add(k);top.push(o)}if(top.length==10)break}
@@ -143,5 +149,6 @@ function render(){
     $("day").innerHTML=X.slice(0,40).map(card).join("");
   }
 }
-$("len").onchange=$("home").onchange=$("jp").onchange=render;render();
+if(!M.verified)$("stopsl").style.display="none";
+$("len").onchange=$("home").onchange=$("jp").onchange=$("stops").onchange=render;render();
 </script></body></html>"""
