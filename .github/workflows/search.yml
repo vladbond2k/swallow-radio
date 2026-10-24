@@ -15,14 +15,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Google limits requests per IP, so 5 runners split the work, each through its own VPN server
+  # (secret named in `wg`; if that secret is missing the runner just uses its own GitHub IP).
   search:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { shard: 1, wg: WIREGUARD_CONF }
+          - { shard: 2, wg: WIREGUARD_CONF_1 }
+          - { shard: 3, wg: WIREGUARD_CONF_2 }
+          - { shard: 4, wg: WIREGUARD_CONF_3 }
+          - { shard: 5, wg: WIREGUARD_CONF_4 }
     env:
-      WG_CONF: ${{ secrets.WIREGUARD_CONF }}   # optional: Proton/any WireGuard config, so Google sees a VPN IP
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      WG_CONF: ${{ secrets[matrix.wg] }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,12 +50,44 @@ jobs:
           sudo wg-quick up wg0
           echo "public IP now: $(curl -s --max-time 10 https://api.ipify.org)"
       - name: Search
-        run: jpfly -c config.toml -o site
+        run: jpfly -c config.toml --shard ${{ matrix.shard }}/5 -o /tmp/unused
       - name: Disconnect VPN
         if: always() && env.WG_CONF != ''
         run: sudo wg-quick down wg0 || true
-      - uses: actions/cache/save@v4
+      - uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: calendar-shard-${{ matrix.shard }}
+          path: .cache/calendar
+          retention-days: 1
+          if-no-files-found: ignore
+
+  publish:
+    needs: search
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache
+          key: calendar-${{ github.run_id }}
+          restore-keys: calendar-
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: calendar-shard-*
+          path: shards
+      - name: Merge and build page
+        run: jpfly -c config.toml --no-fetch --merge shards/* -o site
+      - uses: actions/cache/save@v4
         with:
           path: .cache
           key: calendar-${{ github.run_id }}-${{ github.run_attempt }}

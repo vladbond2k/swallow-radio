@@ -105,20 +105,39 @@ class Store:
         rec["prices"].update({d: [p, now] for d, p in prices.items()})
         self._path(key).write_text(json.dumps(rec))
 
+    def absorb(self, other_root: Path):
+        """Merge another store (e.g. from a parallel runner): newest price per date wins."""
+        for f in other_root.glob("*.json"):
+            theirs, mine = json.loads(f.read_text()), self.root / f.name
+            rec = json.loads(mine.read_text()) if mine.exists() else {"asked": 0, "prices": {}}
+            rec["asked"] = max(rec["asked"], theirs["asked"])
+            for d, v in theirs["prices"].items():
+                if d not in rec["prices"] or v[1] > rec["prices"][d][1]:
+                    rec["prices"][d] = v
+            mine.write_text(json.dumps(rec))
+
     def complete(self, key) -> bool:
         _, _, _, start, end = key
         return len(self.load(key)["prices"]) >= COMPLETE * ((end - start).days + 1)
 
 
-def search(cfg: Config, demo: bool = False, cache_dir: str = ".cache") -> tuple[list[Option], dict]:
+def store_dir(cache_dir: str, demo: bool) -> Path:
+    return Path(cache_dir) / ("demo" if demo else "calendar")
+
+
+def search(cfg: Config, demo: bool = False, cache_dir: str = ".cache", shard: tuple[int, int] = (0, 1),
+           fetch_enabled: bool = True) -> tuple[list[Option], dict]:
     fetch = _calendar_demo if demo else _calendar
-    store = Store(cfg, Path(cache_dir) / ("demo" if demo else "calendar"))
+    store = Store(cfg, store_dir(cache_dir, demo))
     lengths = sorted(range(cfg.min_days, cfg.max_days + 1), key=lambda d: abs(d - (cfg.min_days + cfg.max_days) / 2))
     jobs = [(h, j, d, s, e) for d in lengths for (s, e) in _windows(cfg) for h in cfg.home for j in cfg.japan]
 
     # Never-asked first, then incomplete calendars asked longest ago; complete ones are skipped until they expire.
-    todo = sorted((k for k in jobs if not store.complete(k)), key=lambda k: store.load(k)["asked"])
-    print(f"{len(jobs)} calendars, {len(jobs) - len(todo)} complete, asking {len(todo)} (until Google refuses)",
+    # Parallel runners (each with its own IP) split the requests: runner i of n takes every n-th job.
+    i, n = shard
+    mine = [k for idx, k in enumerate(jobs) if idx % n == i] if fetch_enabled else []
+    todo = sorted((k for k in mine if not store.complete(k)), key=lambda k: store.load(k)["asked"])
+    print(f"{len(jobs)} calendars; shard {i + 1}/{n} owns {len(mine)}, asking {len(todo)} (until Google refuses)",
           file=sys.stderr)
     asked, stopped = 0, False
     for key in todo:
