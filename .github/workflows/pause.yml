@@ -34,7 +34,9 @@ jobs:
       # Actions caches expire after 7 idle days, so keep the data and the last page in a branch.
       - name: Archive to branch "archive"
         run: |
-          jpfly -c config.toml --no-fetch -o /tmp/site
+          # prices are older than cache_hours by now; build the snapshot page from them anyway
+          sed 's/^cache_hours *=.*/cache_hours = 100000/' config.toml > /tmp/snapshot.toml
+          jpfly -c /tmp/snapshot.toml --no-fetch -o /tmp/site
           mkdir /tmp/archive && cp -r .cache /tmp/archive/cache && cp -r /tmp/site /tmp/archive/site
           cd /tmp/archive
           git init -q -b archive
