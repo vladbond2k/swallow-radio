@@ -1,9 +1,10 @@
 name: Search flights
 
 on:
-  workflow_dispatch:          # "Run workflow" button in the Actions tab
-  schedule:
-    - cron: "17 */6 * * *"    # refresh every 6 h (when GitHub fires it); runs chain themselves while data is missing
+  workflow_dispatch:          # "Run workflow" button in the Actions tab; runs chain themselves while data is missing
+  # paused: no schedule. To resume refreshing every 6 h, restore:
+  # schedule:
+  #   - cron: "17 */6 * * *"
 
 permissions:
   contents: read
