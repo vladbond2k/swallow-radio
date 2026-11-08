@@ -43,5 +43,5 @@ def main():
     console(opts, cfg)
     print("status: " + json.dumps({k: v for k, v in st.items()}))
     print(f"\nopen {out / 'index.html'}")
-    if not opts and a.shard == "1/1":   # parallel runners may legitimately end up with nothing
+    if not opts and a.shard == "1/1" and not a.no_fetch:   # parallel runners and page builds may legitimately have nothing yet
         sys.exit("nothing found; see errors above")
