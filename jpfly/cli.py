@@ -28,11 +28,14 @@ def main():
 
     warnings = []
     if st["cal_complete"] < st["cal_total"]:
+        tail = ("Попытки исчерпаны: у Google на остальные даты нет цен или он их не отдаёт."
+                if st["cal_settled"] >= st["cal_total"] else "Дополняется при следующих запусках.")
         warnings.append(f"Календарь цен: {st['cal_complete']} из {st['cal_total']} собрано полностью, "
-                        f"{st['cal_with_data'] - st['cal_complete']} частично. Дополняется при следующих запусках.")
+                        f"{st['cal_with_data'] - st['cal_complete']} частично. {tail}")
     if st["limited"] and st["verified"] < st["verify_top"]:
         warnings.append(f"С учётом лимита пересадок проверено {st['verified']} из {st['verify_top']} самых дешёвых "
-                        f"дат — список ниже растёт с каждым запуском.")
+                        f"дат" + (" — этого достаточно." if st["verified"] >= 0.9 * st["verify_top"]
+                                 else " — список ниже растёт с каждым запуском."))
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     write_html(opts, cands, cfg, out / "index.html", warnings, a.demo)
