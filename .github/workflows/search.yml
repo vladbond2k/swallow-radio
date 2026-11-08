@@ -39,8 +39,8 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: .cache
-          key: calendar-${{ github.run_id }}
-          restore-keys: calendar-
+          key: may-calendar-${{ github.run_id }}
+          restore-keys: may-calendar-
       - name: Connect VPN
         if: env.WG_CONF != ''
         continue-on-error: true      # a broken config shouldn't kill the run; this runner then uses its own IP
@@ -79,8 +79,8 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: .cache
-          key: calendar-${{ github.run_id }}
-          restore-keys: calendar-
+          key: may-calendar-${{ github.run_id }}
+          restore-keys: may-calendar-
       - uses: actions/download-artifact@v4
         with:
           pattern: calendar-shard-*
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/cache/save@v4
         with:
           path: .cache
-          key: calendar-${{ github.run_id }}-${{ github.run_attempt }}
+          key: may-calendar-${{ github.run_id }}-${{ github.run_attempt }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

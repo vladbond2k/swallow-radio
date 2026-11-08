@@ -4,8 +4,8 @@ currency = "PLN"
 market = "PL"            # country whose prices Google shows (independent of VPN location)
 
 [trip]
-depart_from = "2027-01-15"   # any day in this window is fine to leave
-depart_to   = "2027-06-30"   # (Google only knows prices ~10 months ahead)
+depart_from = "2027-05-01"   # any day in this window is fine to leave
+depart_to   = "2027-07-31"   # (Google only knows prices ~10 months ahead)
 min_days = 14                # trip length in days
 max_days = 21
 max_stops = 2                # 0 = direct only, 1, 2, or -1 = any
